@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import { t } from './i18n';
 import { ExportConfig } from './types';
 
 /**
@@ -50,12 +51,13 @@ export async function signPdf(
   const certPath = cfg.signing.certificatePath;
   if (!certPath) {
     throw new Error(
-      '署名用証明書が設定されていません。\n' +
-        'markdownFormal.signing.certificatePath に .p12 / .pfx の絶対パスを指定してください。'
+      t(
+        'No signing certificate is configured.\nSet the absolute path of a .p12 or .pfx file in markdownFormal.signing.certificatePath.'
+      )
     );
   }
   if (!fs.existsSync(certPath)) {
-    throw new Error(`署名用証明書が見つかりません: ${certPath}`);
+    throw new Error(t('The signing certificate was not found: {0}', certPath));
   }
 
   const { PDFDocument } = require('pdf-lib');

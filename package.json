@@ -1,8 +1,8 @@
 {
   "name": "markdown-formal-pdf",
   "displayName": "Markdown Formal PDF / Word",
-  "description": "正式文書向けに Markdown を PDF / Word へ変換します。表紙・目次・ページ番号・ページ枠・機密スタンプ・保護(編集制限/電子署名)に対応し、Markdown 自体は一切変更しません。",
-  "version": "0.1.0",
+  "description": "%description%",
+  "version": "0.2.0",
   "publisher": "kazunito",
   "license": "MIT",
   "repository": {
@@ -30,280 +30,469 @@
     "commands": [
       {
         "command": "markdownFormal.exportPdf",
-        "title": "Markdown Formal: PDF に変換",
-        "category": "Markdown Formal"
+        "title": "%command.markdownFormal.exportPdf.title%",
+        "category": "Markdown Formal",
+        "icon": "$(file-pdf)"
       },
       {
         "command": "markdownFormal.exportDocx",
-        "title": "Markdown Formal: Word (docx) に変換",
-        "category": "Markdown Formal"
+        "title": "%command.markdownFormal.exportDocx.title%",
+        "category": "Markdown Formal",
+        "icon": "$(file-text)"
       },
       {
         "command": "markdownFormal.exportBoth",
-        "title": "Markdown Formal: PDF と Word の両方に変換",
-        "category": "Markdown Formal"
+        "title": "%command.markdownFormal.exportBoth.title%",
+        "category": "Markdown Formal",
+        "icon": "$(export)"
       },
       {
         "command": "markdownFormal.setOwnerPassword",
-        "title": "Markdown Formal: オーナーパスワードを保存 (SecretStorage)",
+        "title": "%command.markdownFormal.setOwnerPassword.title%",
         "category": "Markdown Formal"
       },
       {
         "command": "markdownFormal.setCertPassphrase",
-        "title": "Markdown Formal: 証明書パスフレーズを保存 (SecretStorage)",
+        "title": "%command.markdownFormal.setCertPassphrase.title%",
         "category": "Markdown Formal"
       },
       {
         "command": "markdownFormal.clearSecrets",
-        "title": "Markdown Formal: 保存した秘密情報を削除",
+        "title": "%command.markdownFormal.clearSecrets.title%",
         "category": "Markdown Formal"
       },
       {
         "command": "markdownFormal.verifyPdf",
-        "title": "Markdown Formal: PDF を検証 (ハッシュ / 保護状態)",
-        "category": "Markdown Formal"
+        "title": "%command.markdownFormal.verifyPdf.title%",
+        "category": "Markdown Formal",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "markdownFormal.openSettings",
+        "title": "%command.markdownFormal.openSettings.title%",
+        "category": "Markdown Formal",
+        "icon": "$(gear)"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "markdownFormal.submenu",
+        "label": "%submenu.markdownFormal.submenu.label%"
       }
     ],
     "menus": {
       "editor/context": [
         {
           "when": "editorLangId == markdown",
-          "command": "markdownFormal.exportPdf",
-          "group": "markdownFormal@1"
-        },
+          "submenu": "markdownFormal.submenu",
+          "group": "navigation@100"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "when": "resourceLangId == markdown",
+          "submenu": "markdownFormal.submenu",
+          "group": "navigation@100"
+        }
+      ],
+      "explorer/context": [
+        {
+          "when": "resourceLangId == markdown",
+          "submenu": "markdownFormal.submenu",
+          "group": "navigation@100"
+        }
+      ],
+      "editor/title": [
         {
           "when": "editorLangId == markdown",
+          "command": "markdownFormal.exportBoth",
+          "group": "navigation@100"
+        }
+      ],
+      "markdownFormal.submenu": [
+        {
+          "command": "markdownFormal.exportPdf",
+          "group": "1_export@1"
+        },
+        {
           "command": "markdownFormal.exportDocx",
-          "group": "markdownFormal@2"
+          "group": "1_export@2"
+        },
+        {
+          "command": "markdownFormal.exportBoth",
+          "group": "1_export@3"
+        },
+        {
+          "command": "markdownFormal.verifyPdf",
+          "group": "2_verify@1"
+        },
+        {
+          "command": "markdownFormal.openSettings",
+          "group": "3_config@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "markdownFormal.exportPdf",
+          "when": "editorLangId == markdown"
+        },
+        {
+          "command": "markdownFormal.exportDocx",
+          "when": "editorLangId == markdown"
+        },
+        {
+          "command": "markdownFormal.exportBoth",
+          "when": "editorLangId == markdown"
         }
       ]
     },
-    "configuration": {
-      "title": "Markdown Formal PDF / Word",
-      "properties": {
-        "markdownFormal.outputDirectory": {
-          "type": "string",
-          "default": "",
-          "description": "出力先ディレクトリ。空欄なら Markdown と同じ場所に出力します。"
-        },
-        "markdownFormal.page.format": {
-          "type": "string",
-          "default": "A4",
-          "enum": ["A4", "A3", "B5", "Letter", "Legal"],
-          "description": "用紙サイズ。"
-        },
-        "markdownFormal.page.orientation": {
-          "type": "string",
-          "default": "portrait",
-          "enum": ["portrait", "landscape"],
-          "enumDescriptions": ["縦", "横"],
-          "description": "用紙の向き。文書全体に適用されます。"
-        },
-        "markdownFormal.page.margin": {
-          "type": "string",
-          "default": "18mm",
-          "description": "余白。CSS の記法で指定します (例: 18mm / 20mm 15mm)。"
-        },
-        "markdownFormal.frame.cover": {
-          "type": "boolean",
-          "default": false,
-          "description": "表紙にページ枠を描画します。"
-        },
-        "markdownFormal.frame.toc": {
-          "type": "boolean",
-          "default": true,
-          "description": "目次にページ枠を描画します。"
-        },
-        "markdownFormal.frame.body": {
-          "type": "boolean",
-          "default": true,
-          "description": "本文にページ枠を描画します。"
-        },
-        "markdownFormal.frame.color": {
-          "type": "string",
-          "default": "#444444",
-          "description": "ページ枠の線の色。"
-        },
-        "markdownFormal.frame.width": {
-          "type": "string",
-          "default": "0.6mm",
-          "description": "ページ枠の線の太さ。"
-        },
-        "markdownFormal.frame.padding": {
-          "type": "string",
-          "default": "5mm",
-          "description": "ページ枠と本文の間隔。"
-        },
-        "markdownFormal.font.body": {
-          "type": "string",
-          "default": "\"Hiragino Mincho ProN\", \"Yu Mincho\", \"YuMincho\", \"Noto Serif CJK JP\", \"Noto Serif JP\", serif",
-          "description": "本文のフォント。3 OS で使えるようフォールバックを並べてください。"
-        },
-        "markdownFormal.font.heading": {
-          "type": "string",
-          "default": "\"Hiragino Sans\", \"Yu Gothic\", \"Meiryo\", \"Noto Sans CJK JP\", \"Noto Sans JP\", sans-serif",
-          "description": "見出しのフォント。"
-        },
-        "markdownFormal.font.mono": {
-          "type": "string",
-          "default": "\"Menlo\", \"Consolas\", \"DejaVu Sans Mono\", monospace",
-          "description": "コードのフォント。"
-        },
-        "markdownFormal.font.size": {
-          "type": "string",
-          "default": "10.5pt",
-          "description": "本文の文字サイズ。"
-        },
-        "markdownFormal.font.lineHeight": {
-          "type": "number",
-          "default": 1.75,
-          "description": "本文の行間。"
-        },
-        "markdownFormal.heading.style": {
-          "type": "string",
-          "default": "band",
-          "enum": ["plain", "band", "underline"],
-          "enumDescriptions": [
-            "装飾なし",
-            "見出し1は帯に白抜き / 見出し2は下罫線",
-            "見出し1・2とも下罫線"
-          ],
-          "description": "見出しの装飾プリセット。"
-        },
-        "markdownFormal.heading.accentColor": {
-          "type": "string",
-          "default": "#4472C4",
-          "description": "見出し1の帯の色。"
-        },
-        "markdownFormal.heading.textColor": {
-          "type": "string",
-          "default": "#2E74B5",
-          "description": "見出し2の文字色。"
-        },
-        "markdownFormal.heading.pageBreakLevel": {
-          "type": "number",
-          "default": 1,
-          "minimum": 0,
-          "maximum": 3,
-          "description": "この階層までの見出しの直前で改ページします。0 で改ページしません。"
-        },
-        "markdownFormal.cover.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "front matter から表紙を生成します。"
-        },
-        "markdownFormal.stamp.color": {
-          "type": "string",
-          "default": "#CC0000",
-          "description": "機密区分スタンプの色。"
-        },
-        "markdownFormal.stamp.rotate": {
-          "type": "number",
-          "default": -8,
-          "description": "機密区分スタンプの傾き (度)。PDF のみ有効。Word では傾きません。"
-        },
-        "markdownFormal.toc.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "目次ページを生成します。Markdown 本体は変更しません。"
-        },
-        "markdownFormal.toc.depth": {
-          "type": "number",
-          "default": 3,
-          "minimum": 1,
-          "maximum": 6,
-          "description": "目次に載せる見出しの階層。"
-        },
-        "markdownFormal.toc.title": {
-          "type": "string",
-          "default": "目次",
-          "description": "目次ページの見出し。"
-        },
-        "markdownFormal.pageNumber.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "本文にページ番号を表示します。表紙と目次には付きません。"
-        },
-        "markdownFormal.pageNumber.position": {
-          "type": "string",
-          "default": "bottom-center",
-          "enum": ["bottom-center", "bottom-right", "bottom-left", "top-center", "top-right"],
-          "description": "ページ番号の位置。"
-        },
-        "markdownFormal.outline.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "PDF のしおり (アウトライン) を生成します。"
-        },
-        "markdownFormal.protection.mode": {
-          "type": "string",
-          "default": "restrict",
-          "enum": ["none", "restrict", "sign"],
-          "enumDescriptions": [
-            "保護しない",
-            "編集制限 (権限パスワード)。ビューア任せの抑止であり改ざん防止にはなりません",
-            "電子署名 (改ざん検知)。証明書が必要です。編集制限とは併用できません"
-          ],
-          "description": "PDF の保護方式。restrict と sign は併用できません。"
-        },
-        "markdownFormal.protection.permissions.printing": {
-          "type": "string",
-          "default": "highResolution",
-          "enum": ["none", "lowResolution", "highResolution"],
-          "description": "印刷の許可 (編集制限時)。"
-        },
-        "markdownFormal.protection.permissions.copying": {
-          "type": "boolean",
-          "default": true,
-          "description": "テキストのコピーを許可します (編集制限時)。"
-        },
-        "markdownFormal.protection.permissions.annotating": {
-          "type": "boolean",
-          "default": false,
-          "description": "注釈の追加を許可します (編集制限時)。"
-        },
-        "markdownFormal.signing.certificatePath": {
-          "type": "string",
-          "default": "",
-          "description": "署名用証明書 (.p12 / .pfx) の絶対パス。リポジトリ外に置いてください。パスフレーズはコマンドから SecretStorage に保存します。"
-        },
-        "markdownFormal.signing.reason": {
-          "type": "string",
-          "default": "正式文書として承認",
-          "description": "署名の理由。"
-        },
-        "markdownFormal.signing.location": {
-          "type": "string",
-          "default": "",
-          "description": "署名の場所。"
-        },
-        "markdownFormal.signing.contactInfo": {
-          "type": "string",
-          "default": "",
-          "description": "署名の連絡先。"
-        },
-        "markdownFormal.hash.emit": {
-          "type": "boolean",
-          "default": true,
-          "description": "出力と同時に SHA-256 のハッシュファイル (.sha256) を作成します。文書管理台帳との照合に使います。"
-        },
-        "markdownFormal.browser.executablePath": {
-          "type": "string",
-          "default": "",
-          "description": "Chrome / Edge の実行ファイルパス。空欄なら自動検出します。"
-        },
-        "markdownFormal.docx.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Word (docx) 出力を有効にします。"
-        },
-        "markdownFormal.customCss": {
-          "type": "string",
-          "default": "",
-          "description": "追加で読み込む CSS ファイルの絶対パス。既定のスタイルを上書きできます (PDF のみ)。"
+    "configuration": [
+      {
+        "id": "markdownFormal.page",
+        "title": "%configuration.markdownFormal.page.title%",
+        "order": 1,
+        "properties": {
+          "markdownFormal.page.format": {
+            "type": "string",
+            "default": "A4",
+            "enum": [
+              "A4",
+              "A3",
+              "B5",
+              "Letter",
+              "Legal"
+            ],
+            "description": "%markdownFormal.page.format.description%",
+            "enumDescriptions": [
+              "%markdownFormal.page.format.enum.A4%",
+              "%markdownFormal.page.format.enum.A3%",
+              "%markdownFormal.page.format.enum.B5%",
+              "%markdownFormal.page.format.enum.Letter%",
+              "%markdownFormal.page.format.enum.Legal%"
+            ],
+            "order": 1
+          },
+          "markdownFormal.page.orientation": {
+            "type": "string",
+            "default": "portrait",
+            "enum": [
+              "portrait",
+              "landscape"
+            ],
+            "enumDescriptions": [
+              "%markdownFormal.page.orientation.enum.portrait%",
+              "%markdownFormal.page.orientation.enum.landscape%"
+            ],
+            "description": "%markdownFormal.page.orientation.description%",
+            "order": 2
+          },
+          "markdownFormal.page.margin": {
+            "type": "string",
+            "default": "18mm",
+            "description": "%markdownFormal.page.margin.description%",
+            "order": 3
+          },
+          "markdownFormal.frame.body": {
+            "type": "boolean",
+            "default": true,
+            "description": "%markdownFormal.frame.body.description%",
+            "order": 4
+          },
+          "markdownFormal.frame.toc": {
+            "type": "boolean",
+            "default": true,
+            "description": "%markdownFormal.frame.toc.description%",
+            "order": 5
+          },
+          "markdownFormal.frame.cover": {
+            "type": "boolean",
+            "default": false,
+            "description": "%markdownFormal.frame.cover.description%",
+            "order": 6
+          },
+          "markdownFormal.frame.color": {
+            "type": "string",
+            "default": "#444444",
+            "description": "%markdownFormal.frame.color.description%",
+            "order": 7
+          },
+          "markdownFormal.frame.width": {
+            "type": "string",
+            "default": "0.6mm",
+            "description": "%markdownFormal.frame.width.description%",
+            "order": 8
+          },
+          "markdownFormal.frame.padding": {
+            "type": "string",
+            "default": "5mm",
+            "description": "%markdownFormal.frame.padding.description%",
+            "order": 9
+          }
+        }
+      },
+      {
+        "id": "markdownFormal.style",
+        "title": "%configuration.markdownFormal.style.title%",
+        "order": 2,
+        "properties": {
+          "markdownFormal.font.body": {
+            "type": "string",
+            "default": "\"Hiragino Mincho ProN\", \"Yu Mincho\", \"YuMincho\", \"Noto Serif CJK JP\", \"Noto Serif JP\", serif",
+            "description": "%markdownFormal.font.body.description%",
+            "order": 1
+          },
+          "markdownFormal.font.heading": {
+            "type": "string",
+            "default": "\"Hiragino Sans\", \"Yu Gothic\", \"Meiryo\", \"Noto Sans CJK JP\", \"Noto Sans JP\", sans-serif",
+            "description": "%markdownFormal.font.heading.description%",
+            "order": 2
+          },
+          "markdownFormal.font.mono": {
+            "type": "string",
+            "default": "\"Menlo\", \"Consolas\", \"DejaVu Sans Mono\", monospace",
+            "description": "%markdownFormal.font.mono.description%",
+            "order": 3
+          },
+          "markdownFormal.font.size": {
+            "type": "string",
+            "default": "10.5pt",
+            "description": "%markdownFormal.font.size.description%",
+            "order": 4
+          },
+          "markdownFormal.font.lineHeight": {
+            "type": "number",
+            "default": 1.75,
+            "description": "%markdownFormal.font.lineHeight.description%",
+            "order": 5
+          },
+          "markdownFormal.heading.style": {
+            "type": "string",
+            "default": "band",
+            "enum": [
+              "plain",
+              "band",
+              "underline"
+            ],
+            "enumDescriptions": [
+              "%markdownFormal.heading.style.enum.plain%",
+              "%markdownFormal.heading.style.enum.band%",
+              "%markdownFormal.heading.style.enum.underline%"
+            ],
+            "description": "%markdownFormal.heading.style.description%",
+            "order": 6
+          },
+          "markdownFormal.heading.accentColor": {
+            "type": "string",
+            "default": "#4472C4",
+            "description": "%markdownFormal.heading.accentColor.description%",
+            "order": 7
+          },
+          "markdownFormal.heading.textColor": {
+            "type": "string",
+            "default": "#2E74B5",
+            "description": "%markdownFormal.heading.textColor.description%",
+            "order": 8
+          },
+          "markdownFormal.heading.pageBreakLevel": {
+            "type": "number",
+            "default": 1,
+            "minimum": 0,
+            "maximum": 3,
+            "description": "%markdownFormal.heading.pageBreakLevel.description%",
+            "order": 9
+          }
+        }
+      },
+      {
+        "id": "markdownFormal.document",
+        "title": "%configuration.markdownFormal.document.title%",
+        "order": 3,
+        "properties": {
+          "markdownFormal.cover.enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "%markdownFormal.cover.enabled.description%",
+            "order": 1
+          },
+          "markdownFormal.stamp.color": {
+            "type": "string",
+            "default": "#CC0000",
+            "description": "%markdownFormal.stamp.color.description%",
+            "order": 2
+          },
+          "markdownFormal.stamp.rotate": {
+            "type": "number",
+            "default": -8,
+            "description": "%markdownFormal.stamp.rotate.description%",
+            "order": 3
+          },
+          "markdownFormal.toc.enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "%markdownFormal.toc.enabled.description%",
+            "order": 4
+          },
+          "markdownFormal.toc.depth": {
+            "type": "number",
+            "default": 3,
+            "minimum": 1,
+            "maximum": 6,
+            "description": "%markdownFormal.toc.depth.description%",
+            "order": 5
+          },
+          "markdownFormal.toc.title": {
+            "type": "string",
+            "default": "Contents",
+            "description": "%markdownFormal.toc.title.description%",
+            "order": 6
+          },
+          "markdownFormal.pageNumber.enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "%markdownFormal.pageNumber.enabled.description%",
+            "order": 7
+          },
+          "markdownFormal.pageNumber.position": {
+            "type": "string",
+            "default": "bottom-center",
+            "enum": [
+              "bottom-center",
+              "bottom-right",
+              "bottom-left",
+              "top-center",
+              "top-right"
+            ],
+            "description": "%markdownFormal.pageNumber.position.description%",
+            "enumDescriptions": [
+              "%markdownFormal.pageNumber.position.enum.bottom-center%",
+              "%markdownFormal.pageNumber.position.enum.bottom-right%",
+              "%markdownFormal.pageNumber.position.enum.bottom-left%",
+              "%markdownFormal.pageNumber.position.enum.top-center%",
+              "%markdownFormal.pageNumber.position.enum.top-right%"
+            ],
+            "order": 8
+          },
+          "markdownFormal.outline.enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "%markdownFormal.outline.enabled.description%",
+            "order": 9
+          }
+        }
+      },
+      {
+        "id": "markdownFormal.protection",
+        "title": "%configuration.markdownFormal.protection.title%",
+        "order": 4,
+        "properties": {
+          "markdownFormal.protection.mode": {
+            "type": "string",
+            "default": "restrict",
+            "enum": [
+              "none",
+              "restrict",
+              "sign"
+            ],
+            "enumDescriptions": [
+              "%markdownFormal.protection.mode.enum.none%",
+              "%markdownFormal.protection.mode.enum.restrict%",
+              "%markdownFormal.protection.mode.enum.sign%"
+            ],
+            "description": "%markdownFormal.protection.mode.description%",
+            "order": 1
+          },
+          "markdownFormal.protection.permissions.printing": {
+            "type": "string",
+            "default": "highResolution",
+            "enum": [
+              "none",
+              "lowResolution",
+              "highResolution"
+            ],
+            "description": "%markdownFormal.protection.permissions.printing.description%",
+            "enumDescriptions": [
+              "%markdownFormal.protection.permissions.printing.enum.none%",
+              "%markdownFormal.protection.permissions.printing.enum.lowResolution%",
+              "%markdownFormal.protection.permissions.printing.enum.highResolution%"
+            ],
+            "order": 2
+          },
+          "markdownFormal.protection.permissions.copying": {
+            "type": "boolean",
+            "default": true,
+            "description": "%markdownFormal.protection.permissions.copying.description%",
+            "order": 3
+          },
+          "markdownFormal.protection.permissions.annotating": {
+            "type": "boolean",
+            "default": false,
+            "description": "%markdownFormal.protection.permissions.annotating.description%",
+            "order": 4
+          },
+          "markdownFormal.signing.certificatePath": {
+            "type": "string",
+            "default": "",
+            "description": "%markdownFormal.signing.certificatePath.description%",
+            "order": 5
+          },
+          "markdownFormal.signing.reason": {
+            "type": "string",
+            "default": "Approved as an official document",
+            "description": "%markdownFormal.signing.reason.description%",
+            "order": 6
+          },
+          "markdownFormal.signing.location": {
+            "type": "string",
+            "default": "",
+            "description": "%markdownFormal.signing.location.description%",
+            "order": 7
+          },
+          "markdownFormal.signing.contactInfo": {
+            "type": "string",
+            "default": "",
+            "description": "%markdownFormal.signing.contactInfo.description%",
+            "order": 8
+          },
+          "markdownFormal.hash.emit": {
+            "type": "boolean",
+            "default": true,
+            "description": "%markdownFormal.hash.emit.description%",
+            "order": 9
+          }
+        }
+      },
+      {
+        "id": "markdownFormal.output",
+        "title": "%configuration.markdownFormal.output.title%",
+        "order": 5,
+        "properties": {
+          "markdownFormal.outputDirectory": {
+            "type": "string",
+            "default": "",
+            "description": "%markdownFormal.outputDirectory.description%",
+            "order": 1
+          },
+          "markdownFormal.docx.enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "%markdownFormal.docx.enabled.description%",
+            "order": 2
+          },
+          "markdownFormal.browser.executablePath": {
+            "type": "string",
+            "default": "",
+            "description": "%markdownFormal.browser.executablePath.description%",
+            "order": 3
+          },
+          "markdownFormal.customCss": {
+            "type": "string",
+            "default": "",
+            "description": "%markdownFormal.customCss.description%",
+            "order": 4
+          }
         }
       }
-    }
+    ]
   },
   "scripts": {
     "compile": "tsc -p ./",
@@ -318,9 +507,11 @@
     "@signpdf/signpdf": "^3.3.0",
     "docx": "^9.7.1",
     "js-yaml": "^4.1.0",
+    "jszip": "^3.10.1",
     "markdown-it": "^14.1.0",
     "pagedjs-cli": "^0.4.3",
-    "pdf-lib": "^1.17.1"
+    "pdf-lib": "^1.17.1",
+    "puppeteer-core": "^20.9.0"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
@@ -328,5 +519,6 @@
     "@types/node": "^20.14.0",
     "@types/vscode": "^1.85.0",
     "typescript": "^5.5.0"
-  }
+  },
+  "l10n": "./l10n"
 }

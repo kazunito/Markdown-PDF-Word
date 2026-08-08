@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { renderDocx } from './docx';
+import { t } from './i18n';
 import { sha256Line } from './hash';
 import { parseMarkdown, renderBody } from './markdown';
 import { restrictPdf, signPdf } from './protect';
@@ -68,7 +69,7 @@ export async function exportPdf(
     if (fs.existsSync(cfg.customCss)) {
       extraCss = fs.readFileSync(cfg.customCss, 'utf8');
     } else {
-      notes.push(`追加 CSS が見つかりませんでした: ${cfg.customCss}`);
+      notes.push(t('The extra CSS file was not found: {0}', cfg.customCss));
     }
   }
 
@@ -80,27 +81,32 @@ export async function exportPdf(
     const password = await secrets.getOwnerPassword();
     if (!password) {
       notes.push(
-        '編集制限は適用していません。オーナーパスワードが未設定です ' +
-          '(コマンド「オーナーパスワードを保存」で登録してください)。'
+        t(
+          'The edit restriction was not applied because no owner password is set. Store one with the command "Store the owner password".'
+        )
       );
     } else {
       pdf = await restrictPdf(pdf, password, cfg);
       notes.push(
-        '編集制限を適用しました。ただし権限はビューア任せの助言であり、改ざん防止にはなりません。'
+        t(
+          'The edit restriction was applied. Note that permissions are only advisory to the viewer and do not prevent tampering.'
+        )
       );
     }
   } else if (cfg.protection.mode === 'sign') {
     const passphrase = await secrets.getCertPassphrase();
     if (passphrase === undefined) {
       notes.push(
-        '電子署名は適用していません。証明書パスフレーズが未設定です ' +
-          '(コマンド「証明書パスフレーズを保存」で登録してください)。'
+        t(
+          'The digital signature was not applied because no certificate passphrase is set. Store one with the command "Store the certificate passphrase".'
+        )
       );
     } else {
       pdf = await signPdf(pdf, passphrase, cfg);
       notes.push(
-        '電子署名を付与しました。検知は閲覧環境に依存します ' +
-          '(Chrome は署名を検証できません。Acrobat Reader を推奨)。'
+        t(
+          'The digital signature was added. Detection depends on the viewer: Chrome cannot verify signatures, so Acrobat Reader is recommended.'
+        )
       );
     }
   }
@@ -124,6 +130,6 @@ export async function exportDocx(sourcePath: string, cfg: ExportConfig): Promise
   return {
     outputPath,
     hashPath,
-    notes: ['Word 出力は編集用ドラフトです。正本は PDF を使用してください。'],
+    notes: [t('Word output is an editable draft. Use the PDF as the authoritative copy.')],
   };
 }

@@ -5,6 +5,7 @@ import {
   ExternalHyperlink,
   Footer,
   HeadingLevel,
+  ImageRun,
   ISectionOptions,
   LevelFormat,
   PageNumber,
@@ -21,6 +22,7 @@ import {
 } from 'docx';
 import MarkdownIt from 'markdown-it';
 import Token from 'markdown-it/lib/token.mjs';
+import { renderStamp, StampImage } from './stamp';
 import { ExportConfig, ExportInput } from './types';
 
 /**
@@ -28,6 +30,48 @@ import { ExportConfig, ExportInput } from './types';
  * PDF とは別の描画経路で、CSS は使えないため docx の指定に読み替える。
  * 位置づけは編集用ドラフト。正本は PDF。
  */
+
+/**
+ * 生成した docx を後処理する。
+ *
+ * 目的: Word を開くたびに出る
+ * 「この文書には他のファイルを参照するフィールドが含まれています…」の確認を出さずに、
+ * 目次だけを初回に確定させる。
+ *
+ * 方法: 文書全体の <w:updateFields/> を外し、代わりに目次フィールドに
+ * w:dirty="true" を付ける。フィールド単位の更新指示なので確認ダイアログが出ない。
+ */
+async function postProcessDocx(buffer: Buffer): Promise<Buffer> {
+  const JSZip = require('jszip');
+  const zip = await JSZip.loadAsync(buffer);
+
+  const settingsFile = zip.file('word/settings.xml');
+  if (settingsFile) {
+    const settings = await settingsFile.async('string');
+    zip.file('word/settings.xml', settings.replace(/<w:updateFields[^>]*\/>/g, ''));
+  }
+
+  const documentFile = zip.file('word/document.xml');
+  if (documentFile) {
+    const document = await documentFile.async('string');
+    // 目次フィールドの開始位置だけを dirty にする
+    const tocIndex = document.indexOf('TOC \\');
+    if (tocIndex >= 0) {
+      const beginIndex = document.lastIndexOf('<w:fldChar w:fldCharType="begin"', tocIndex);
+      if (beginIndex >= 0) {
+        const endOfTag = document.indexOf('/>', beginIndex);
+        const alreadyDirty = document.slice(beginIndex, endOfTag).includes('w:dirty');
+        if (endOfTag > beginIndex && !alreadyDirty) {
+          const patched =
+            document.slice(0, endOfTag) + ' w:dirty="true"' + document.slice(endOfTag);
+          zip.file('word/document.xml', patched);
+        }
+      }
+    }
+  }
+
+  return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+}
 
 /** CSS のフォント指定リストから先頭のフォント名だけ取り出す */
 function firstFont(cssFontList: string): string {
@@ -225,6 +269,9 @@ function tokensToDocx(tokens: Token[], cfg: ExportConfig): (Paragraph | Table)[]
         out.push(
           new Paragraph({
             heading: HEADING_LEVELS[Math.min(level, 6) - 1],
+            // PDF 側の pageBreakCss と同じ基準で、設定した階層までの見出しの前で改ページする。
+            // 本文の先頭見出しで改ページすると白紙ページが出るので除く
+            pageBreakBefore: level <= cfg.heading.pageBreakLevel && out.length > 0,
             children: inlineToRuns(inline, cfg),
           })
         );
@@ -319,7 +366,11 @@ function tokensToDocx(tokens: Token[], cfg: ExportConfig): (Paragraph | Table)[]
 }
 
 /** 表紙の段落を作る */
-function buildCoverChildren(input: ExportInput, cfg: ExportConfig): Paragraph[] {
+function buildCoverChildren(
+  input: ExportInput,
+  cfg: ExportConfig,
+  stamp: StampImage | undefined
+): Paragraph[] {
   const m = input.meta;
   const headingFont = firstFont(cfg.font.heading);
   const stampColor = toDocxColor(cfg.stamp.color);
@@ -335,28 +386,51 @@ function buildCoverChildren(input: ExportInput, cfg: ExportConfig): Paragraph[] 
   }
 
   if (m.classification) {
-    // Word では図形の回転が使えないため、赤枠のテキストで代用する (傾きなし)
-    children.push(
-      new Paragraph({
-        alignment: AlignmentType.RIGHT,
-        indent: { left: 7000 },
-        children: [
-          new TextRun({
-            text: `　${m.classification}　`,
-            bold: true,
-            size: 32,
-            color: stampColor,
-            font: headingFont,
-          }),
-        ],
-        border: {
-          top: { style: BorderStyle.SINGLE, size: 18, color: stampColor, space: 2 },
-          bottom: { style: BorderStyle.SINGLE, size: 18, color: stampColor, space: 2 },
-          left: { style: BorderStyle.SINGLE, size: 18, color: stampColor, space: 2 },
-          right: { style: BorderStyle.SINGLE, size: 18, color: stampColor, space: 2 },
-        },
-      })
-    );
+    if (stamp) {
+      // PDF と同じ見た目にするため、傾けた画像として貼る。
+      // 画像なら Word でも回転指定が効く
+      const heightPt = 34;
+      const widthPt = Math.round((stamp.width / stamp.height) * heightPt);
+      children.push(
+        new Paragraph({
+          alignment: AlignmentType.RIGHT,
+          children: [
+            new ImageRun({
+              type: 'png',
+              data: stamp.png,
+              transformation: {
+                width: widthPt,
+                height: heightPt,
+                rotation: cfg.stamp.rotate,
+              },
+            }),
+          ],
+        })
+      );
+    } else {
+      // 画像化に失敗した場合の代替。赤枠のテキスト (傾きなし)
+      children.push(
+        new Paragraph({
+          alignment: AlignmentType.RIGHT,
+          indent: { left: 7000 },
+          children: [
+            new TextRun({
+              text: `　${m.classification}　`,
+              bold: true,
+              size: 32,
+              color: stampColor,
+              font: headingFont,
+            }),
+          ],
+          border: {
+            top: { style: BorderStyle.SINGLE, size: 18, color: stampColor, space: 2 },
+            bottom: { style: BorderStyle.SINGLE, size: 18, color: stampColor, space: 2 },
+            left: { style: BorderStyle.SINGLE, size: 18, color: stampColor, space: 2 },
+            right: { style: BorderStyle.SINGLE, size: 18, color: stampColor, space: 2 },
+          },
+        })
+      );
+    }
   }
 
   children.push(new Paragraph({ text: '', spacing: { before: 3600 } }));
@@ -452,7 +526,12 @@ export async function renderDocx(input: ExportInput, cfg: ExportConfig): Promise
   const sections: ISectionOptions[] = [];
 
   // 表紙: ページ番号なし・ページ数に数えない
-  const coverChildren = cfg.cover.enabled ? buildCoverChildren(input, cfg) : [];
+  // スタンプは PDF と同じ見た目にするため画像化する
+  const stamp =
+    cfg.cover.enabled && input.meta.classification
+      ? await renderStamp(input.meta.classification, cfg)
+      : undefined;
+  const coverChildren = cfg.cover.enabled ? buildCoverChildren(input, cfg, stamp) : [];
   if (coverChildren.length > 0) {
     sections.push({
       properties: { page: { ...pageSetup, borders: borderOptions(cfg.frame.cover, cfg) } },
@@ -495,6 +574,8 @@ export async function renderDocx(input: ExportInput, cfg: ExportConfig): Promise
   } as ISectionOptions);
 
   const doc = new Document({
+    // ここで true にしておき、後処理でフィールド単位の dirty に置き換える。
+    // 文書全体の updateFields のままだと Word が開くたびに確認ダイアログを出す。
     features: { updateFields: true },
     numbering: {
       config: [
@@ -522,7 +603,7 @@ export async function renderDocx(input: ExportInput, cfg: ExportConfig): Promise
     sections,
   });
 
-  return Packer.toBuffer(doc);
+  return postProcessDocx(await Packer.toBuffer(doc));
 }
 
 /** 見出しの装飾プリセットを docx のスタイルに読み替える */

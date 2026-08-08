@@ -51,7 +51,7 @@ export function loadConfig(resource?: vscode.Uri): ExportConfig {
     toc: {
       enabled: get('toc.enabled', true),
       depth: get('toc.depth', 3),
-      title: get('toc.title', '目次'),
+      title: get('toc.title', 'Contents'),
     },
 
     pageNumber: {
@@ -74,7 +74,7 @@ export function loadConfig(resource?: vscode.Uri): ExportConfig {
 
     signing: {
       certificatePath: get('signing.certificatePath', ''),
-      reason: get('signing.reason', '正式文書として承認'),
+      reason: get('signing.reason', 'Approved as an official document'),
       location: get('signing.location', ''),
       contactInfo: get('signing.contactInfo', ''),
     },

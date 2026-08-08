@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { t } from './i18n';
 
 /**
  * Chrome / Edge の実行ファイルを探す。
@@ -55,8 +56,10 @@ export function resolveBrowserPath(configured: string): string {
   if (configured) {
     if (!fs.existsSync(configured)) {
       throw new Error(
-        `設定されたブラウザが見つかりません: ${configured}\n` +
-          'markdownFormal.browser.executablePath を確認してください。'
+        t(
+          'The configured browser was not found: {0}\nCheck markdownFormal.browser.executablePath.',
+          configured
+        )
       );
     }
     return configured;
@@ -69,8 +72,8 @@ export function resolveBrowserPath(configured: string): string {
   }
 
   throw new Error(
-    'Chrome または Edge が見つかりませんでした。\n' +
-      'PDF 化にはレンダリングエンジンが必要です。いずれかをインストールするか、\n' +
-      '設定 markdownFormal.browser.executablePath に実行ファイルのパスを指定してください。'
+    t(
+      'Neither Chrome nor Edge was found.\nPDF output needs a rendering engine. Install one of them, or set the path to the executable in markdownFormal.browser.executablePath.'
+    )
   );
 }

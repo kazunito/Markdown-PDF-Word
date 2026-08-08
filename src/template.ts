@@ -154,7 +154,13 @@ ${headingStyleCss(cfg)}
 ${pageBreakCss(cfg.heading.pageBreakLevel)}
 #cover .title { break-before: auto; }
 h1, h2, h3 { break-after: avoid; }
-table, pre, img, figure, blockquote { break-inside: avoid; }
+pre, img, figure, blockquote { break-inside: avoid; }
+/* 表に break-inside: avoid を付けると表全体が次ページへ移動し、見出しだけが残る。
+   表はページ境界で分割してよいものとし、行の途中では切らない */
+tr, th, td { break-inside: avoid; }
+/* 続きのページにも見出し行を出す指定。Paged.js 0.4.3 は未対応で現状は効かない
+   (Word 出力は docx 側の tableHeader で繰り返される) */
+thead { display: table-header-group; }
 
 /* ===== ページ幅に収める ===== */
 table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 9pt; }

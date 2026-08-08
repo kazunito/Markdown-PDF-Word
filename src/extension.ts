@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { loadConfig } from './config';
 import { exportDocx, exportPdf, ExportResult, SecretProvider } from './exporter';
 import { sha256 } from './hash';
+import { t } from './i18n';
 import { inspectPdf } from './protect';
 
 /**
@@ -20,15 +21,27 @@ function log(message: string): void {
   output.appendLine(`[${new Date().toLocaleTimeString()}] ${message}`);
 }
 
-/** 現在編集中の Markdown を取得する */
-function activeMarkdownPath(): string | undefined {
+/**
+ * 対象の Markdown を決める。
+ * エクスプローラーやタブの右クリックからは URI が渡されるのでそれを優先し、
+ * コマンドパレットからの実行では編集中のファイルを使う。
+ */
+function targetMarkdownPath(resource?: vscode.Uri): string | undefined {
+  if (resource && resource.fsPath) {
+    if (!resource.fsPath.toLowerCase().endsWith('.md')) {
+      vscode.window.showErrorMessage(t('Select a Markdown file (.md).'));
+      return undefined;
+    }
+    return resource.fsPath;
+  }
+
   const editor = vscode.window.activeTextEditor;
   if (!editor || editor.document.languageId !== 'markdown') {
-    vscode.window.showErrorMessage('Markdown ファイルを開いた状態で実行してください。');
+    vscode.window.showErrorMessage(t('Open a Markdown file before running this command.'));
     return undefined;
   }
   if (editor.document.isUntitled) {
-    vscode.window.showErrorMessage('先にファイルを保存してください。');
+    vscode.window.showErrorMessage(t('Save the file first.'));
     return undefined;
   }
   return editor.document.uri.fsPath;
@@ -40,18 +53,20 @@ async function reportResult(result: ExportResult): Promise<void> {
     log(note);
   }
   if (result.hashPath) {
-    log(`ハッシュ: ${result.hashPath}`);
+    log(t('Fingerprint: {0}', result.hashPath));
   }
-  log(`出力: ${result.outputPath}`);
+  log(t('Output: {0}', result.outputPath));
 
+  const openFolder = t('Open folder');
+  const showLog = t('Show log');
   const choice = await vscode.window.showInformationMessage(
-    `変換しました: ${result.outputPath}`,
-    'フォルダを開く',
-    'ログを見る'
+    t('Converted: {0}', result.outputPath),
+    openFolder,
+    showLog
   );
-  if (choice === 'フォルダを開く') {
+  if (choice === openFolder) {
     vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(result.outputPath));
-  } else if (choice === 'ログを見る') {
+  } else if (choice === showLog) {
     output.show();
   }
 }
@@ -59,9 +74,10 @@ async function reportResult(result: ExportResult): Promise<void> {
 /** 例外をユーザーに見える形で報告する */
 function reportError(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
-  log(`エラー: ${message}`);
-  vscode.window.showErrorMessage(`変換に失敗しました: ${message}`, 'ログを見る').then((c) => {
-    if (c === 'ログを見る') {
+  const showLog = t('Show log');
+  log(t('Error: {0}', message));
+  vscode.window.showErrorMessage(t('Conversion failed: {0}', message), showLog).then((c) => {
+    if (c === showLog) {
       output.show();
     }
   });
@@ -83,14 +99,14 @@ export function activate(context: vscode.ExtensionContext): void {
     );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('markdownFormal.exportPdf', async () => {
-      const sourcePath = activeMarkdownPath();
+    vscode.commands.registerCommand('markdownFormal.exportPdf', async (resource?: vscode.Uri) => {
+      const sourcePath = targetMarkdownPath(resource);
       if (!sourcePath) {
         return;
       }
       try {
         const cfg = loadConfig(vscode.Uri.file(sourcePath));
-        const result = await withProgress('PDF に変換しています…', () =>
+        const result = await withProgress(t('Converting to PDF\u2026'), () =>
           exportPdf(sourcePath, cfg, secrets)
         );
         await reportResult(result);
@@ -99,18 +115,18 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
 
-    vscode.commands.registerCommand('markdownFormal.exportDocx', async () => {
-      const sourcePath = activeMarkdownPath();
+    vscode.commands.registerCommand('markdownFormal.exportDocx', async (resource?: vscode.Uri) => {
+      const sourcePath = targetMarkdownPath(resource);
       if (!sourcePath) {
         return;
       }
       try {
         const cfg = loadConfig(vscode.Uri.file(sourcePath));
         if (!cfg.docx.enabled) {
-          vscode.window.showWarningMessage('Word 出力は設定で無効になっています。');
+          vscode.window.showWarningMessage(t('Word output is disabled in the settings.'));
           return;
         }
-        const result = await withProgress('Word に変換しています…', () =>
+        const result = await withProgress(t('Converting to Word\u2026'), () =>
           exportDocx(sourcePath, cfg)
         );
         await reportResult(result);
@@ -119,32 +135,33 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
 
-    vscode.commands.registerCommand('markdownFormal.exportBoth', async () => {
-      const sourcePath = activeMarkdownPath();
+    vscode.commands.registerCommand('markdownFormal.exportBoth', async (resource?: vscode.Uri) => {
+      const sourcePath = targetMarkdownPath(resource);
       if (!sourcePath) {
         return;
       }
       try {
         const cfg = loadConfig(vscode.Uri.file(sourcePath));
-        const pdfResult = await withProgress('PDF に変換しています…', () =>
+        const pdfResult = await withProgress(t('Converting to PDF\u2026'), () =>
           exportPdf(sourcePath, cfg, secrets)
         );
         for (const note of pdfResult.notes) {
           log(note);
         }
-        log(`出力: ${pdfResult.outputPath}`);
+        log(t('Output: {0}', pdfResult.outputPath));
 
         if (cfg.docx.enabled) {
-          const docxResult = await withProgress('Word に変換しています…', () =>
+          const docxResult = await withProgress(t('Converting to Word\u2026'), () =>
             exportDocx(sourcePath, cfg)
           );
           for (const note of docxResult.notes) {
             log(note);
           }
-          log(`出力: ${docxResult.outputPath}`);
+          log(t('Output: {0}', docxResult.outputPath));
         }
-        vscode.window.showInformationMessage('PDF と Word を出力しました。', 'ログを見る').then((c) => {
-          if (c === 'ログを見る') {
+        const showLog = t('Show log');
+        vscode.window.showInformationMessage(t('Wrote the PDF and the Word file.'), showLog).then((c) => {
+          if (c === showLog) {
             output.show();
           }
         });
@@ -155,7 +172,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand('markdownFormal.setOwnerPassword', async () => {
       const value = await vscode.window.showInputBox({
-        prompt: 'PDF のオーナーパスワード (編集制限の解除に使う管理者用パスワード)',
+        prompt: t('Owner password for the PDF (the administrator password that lifts the edit restriction)'),
         password: true,
         ignoreFocusOut: true,
       });
@@ -163,12 +180,12 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
       await context.secrets.store(SECRET_OWNER_PASSWORD, value);
-      vscode.window.showInformationMessage('オーナーパスワードを SecretStorage に保存しました。');
+      vscode.window.showInformationMessage(t('Stored the owner password in SecretStorage.'));
     }),
 
     vscode.commands.registerCommand('markdownFormal.setCertPassphrase', async () => {
       const value = await vscode.window.showInputBox({
-        prompt: '署名用証明書 (.p12 / .pfx) のパスフレーズ',
+        prompt: t('Passphrase of the signing certificate (.p12 / .pfx)'),
         password: true,
         ignoreFocusOut: true,
       });
@@ -176,28 +193,37 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
       await context.secrets.store(SECRET_CERT_PASSPHRASE, value);
-      vscode.window.showInformationMessage('証明書パスフレーズを SecretStorage に保存しました。');
+      vscode.window.showInformationMessage(t('Stored the certificate passphrase in SecretStorage.'));
     }),
 
     vscode.commands.registerCommand('markdownFormal.clearSecrets', async () => {
+      const doDelete = t('Delete');
       const ok = await vscode.window.showWarningMessage(
-        '保存済みのオーナーパスワードと証明書パスフレーズを削除します。よろしいですか?',
+        t('This deletes the stored owner password and certificate passphrase. Continue?'),
         { modal: true },
-        '削除する'
+        doDelete
       );
-      if (ok !== '削除する') {
+      if (ok !== doDelete) {
         return;
       }
       await context.secrets.delete(SECRET_OWNER_PASSWORD);
       await context.secrets.delete(SECRET_CERT_PASSPHRASE);
-      vscode.window.showInformationMessage('保存した秘密情報を削除しました。');
+      vscode.window.showInformationMessage(t('Deleted the stored secrets.'));
+    }),
+
+    vscode.commands.registerCommand('markdownFormal.openSettings', async () => {
+      // この拡張の設定だけを絞り込んだ状態で設定画面を開く
+      await vscode.commands.executeCommand(
+        'workbench.action.openSettings',
+        '@ext:kazunito.markdown-formal-pdf'
+      );
     }),
 
     vscode.commands.registerCommand('markdownFormal.verifyPdf', async () => {
       const picked = await vscode.window.showOpenDialog({
         canSelectMany: false,
         filters: { PDF: ['pdf'] },
-        openLabel: '検証する PDF を選択',
+        openLabel: t('Select a PDF to verify'),
       });
       if (!picked || picked.length === 0) {
         return;
@@ -209,14 +235,16 @@ export function activate(context: vscode.ExtensionContext): void {
         const digest = sha256(bytes);
 
         output.show();
-        log(`検証: ${filePath}`);
-        log(`  ページ数     : ${info.pages}`);
-        log(`  編集制限     : ${info.encrypted ? 'あり' : 'なし'}`);
-        log(`  電子署名     : ${info.signed ? 'あり' : 'なし'}`);
-        log(`  SHA-256      : ${digest}`);
-        log('  ※ 台帳の値と一致すれば改ざんされていません。');
+        const yes = t('yes');
+        const no = t('no');
+        log(t('Verifying: {0}', filePath));
+        log('  ' + t('Pages: {0}', info.pages));
+        log('  ' + t('Edit restriction: {0}', info.encrypted ? yes : no));
+        log('  ' + t('Digital signature: {0}', info.signed ? yes : no));
+        log('  ' + t('SHA-256: {0}', digest));
+        log('  ' + t('If this matches the value in the register, the file has not been tampered with.'));
         if (info.signed) {
-          log('  ※ 署名の有効性は Acrobat Reader か pdfsig で確認してください。');
+          log('  ' + t('Check the validity of the signature with Acrobat Reader or pdfsig.'));
         }
       } catch (e) {
         reportError(e);

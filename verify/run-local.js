@@ -13,9 +13,10 @@ const cfg = {
   outputDirectory: path.join(__dirname, 'out'),
   page: { format: 'A4', orientation: 'portrait', margin: '18mm' },
   frame: {
-    cover: false,
-    toc: true,
-    body: true,
+    // MF_FRAME=on で全ページ枠あり、off で枠なし。既定は表紙のみ枠なし
+    cover: process.env.MF_FRAME === 'on',
+    toc: process.env.MF_FRAME !== 'off',
+    body: process.env.MF_FRAME !== 'off',
     color: '#444444',
     width: '0.6mm',
     padding: '5mm',
@@ -36,7 +37,8 @@ const cfg = {
   },
   cover: { enabled: true },
   stamp: { color: '#CC0000', rotate: -8 },
-  toc: { enabled: true, depth: 3, title: '目次' },
+  // 既定値は英語。日本語の文書を作るときは設定 markdownFormal.toc.title を変える
+  toc: { enabled: true, depth: 3, title: 'Contents' },
   pageNumber: { enabled: true, position: 'bottom-center' },
   outline: { enabled: true },
   protection: {

@@ -14,6 +14,29 @@ import { ExportConfig } from './types';
  * 検証済みの pagedjs-cli の Printer を利用する。
  */
 
+/** CommonJS へ変換されない本物の動的 import */
+const dynamicImport: (specifier: string) => Promise<any> = new Function(
+  'specifier',
+  'return import(specifier)'
+) as (specifier: string) => Promise<any>;
+
+/**
+ * pagedjs-cli を読み込む。
+ * 拡張ホストの Node と手元の Node でモジュール解決の挙動が異なるため、
+ * 動的 import と require の両方を試す。
+ */
+async function loadPagedjsCli(): Promise<any> {
+  try {
+    return await dynamicImport('pagedjs-cli');
+  } catch (importError) {
+    try {
+      return require('pagedjs-cli');
+    } catch {
+      throw importError;
+    }
+  }
+}
+
 /** 一時作業ディレクトリを作る。呼び出し側で必ず削除する */
 function makeTempDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'markdown-formal-'));
@@ -32,8 +55,9 @@ export async function renderPdf(html: string, cfg: ExportConfig): Promise<Buffer
   fs.writeFileSync(htmlPath, html, 'utf8');
 
   try {
-    // pagedjs-cli は ESM/CJS 両対応。default に Printer が入る
-    const mod = require('pagedjs-cli');
+    // pagedjs-cli は ESM。実行環境の Node によっては require で読めないため、
+    // 動的 import を優先し、失敗した場合だけ require に切り替える
+    const mod = await loadPagedjsCli();
     const Printer = mod.default || mod;
 
     const printer = new Printer({
