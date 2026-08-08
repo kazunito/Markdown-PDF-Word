@@ -1,0 +1,332 @@
+{
+  "name": "markdown-formal-pdf",
+  "displayName": "Markdown Formal PDF / Word",
+  "description": "正式文書向けに Markdown を PDF / Word へ変換します。表紙・目次・ページ番号・ページ枠・機密スタンプ・保護(編集制限/電子署名)に対応し、Markdown 自体は一切変更しません。",
+  "version": "0.1.0",
+  "publisher": "kazunito",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kazunito/Markdown-PDF-Word.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "markdown",
+    "pdf",
+    "word",
+    "docx",
+    "pagedjs"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:markdown"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "markdownFormal.exportPdf",
+        "title": "Markdown Formal: PDF に変換",
+        "category": "Markdown Formal"
+      },
+      {
+        "command": "markdownFormal.exportDocx",
+        "title": "Markdown Formal: Word (docx) に変換",
+        "category": "Markdown Formal"
+      },
+      {
+        "command": "markdownFormal.exportBoth",
+        "title": "Markdown Formal: PDF と Word の両方に変換",
+        "category": "Markdown Formal"
+      },
+      {
+        "command": "markdownFormal.setOwnerPassword",
+        "title": "Markdown Formal: オーナーパスワードを保存 (SecretStorage)",
+        "category": "Markdown Formal"
+      },
+      {
+        "command": "markdownFormal.setCertPassphrase",
+        "title": "Markdown Formal: 証明書パスフレーズを保存 (SecretStorage)",
+        "category": "Markdown Formal"
+      },
+      {
+        "command": "markdownFormal.clearSecrets",
+        "title": "Markdown Formal: 保存した秘密情報を削除",
+        "category": "Markdown Formal"
+      },
+      {
+        "command": "markdownFormal.verifyPdf",
+        "title": "Markdown Formal: PDF を検証 (ハッシュ / 保護状態)",
+        "category": "Markdown Formal"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "when": "editorLangId == markdown",
+          "command": "markdownFormal.exportPdf",
+          "group": "markdownFormal@1"
+        },
+        {
+          "when": "editorLangId == markdown",
+          "command": "markdownFormal.exportDocx",
+          "group": "markdownFormal@2"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Markdown Formal PDF / Word",
+      "properties": {
+        "markdownFormal.outputDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "出力先ディレクトリ。空欄なら Markdown と同じ場所に出力します。"
+        },
+        "markdownFormal.page.format": {
+          "type": "string",
+          "default": "A4",
+          "enum": ["A4", "A3", "B5", "Letter", "Legal"],
+          "description": "用紙サイズ。"
+        },
+        "markdownFormal.page.orientation": {
+          "type": "string",
+          "default": "portrait",
+          "enum": ["portrait", "landscape"],
+          "enumDescriptions": ["縦", "横"],
+          "description": "用紙の向き。文書全体に適用されます。"
+        },
+        "markdownFormal.page.margin": {
+          "type": "string",
+          "default": "18mm",
+          "description": "余白。CSS の記法で指定します (例: 18mm / 20mm 15mm)。"
+        },
+        "markdownFormal.frame.cover": {
+          "type": "boolean",
+          "default": false,
+          "description": "表紙にページ枠を描画します。"
+        },
+        "markdownFormal.frame.toc": {
+          "type": "boolean",
+          "default": true,
+          "description": "目次にページ枠を描画します。"
+        },
+        "markdownFormal.frame.body": {
+          "type": "boolean",
+          "default": true,
+          "description": "本文にページ枠を描画します。"
+        },
+        "markdownFormal.frame.color": {
+          "type": "string",
+          "default": "#444444",
+          "description": "ページ枠の線の色。"
+        },
+        "markdownFormal.frame.width": {
+          "type": "string",
+          "default": "0.6mm",
+          "description": "ページ枠の線の太さ。"
+        },
+        "markdownFormal.frame.padding": {
+          "type": "string",
+          "default": "5mm",
+          "description": "ページ枠と本文の間隔。"
+        },
+        "markdownFormal.font.body": {
+          "type": "string",
+          "default": "\"Hiragino Mincho ProN\", \"Yu Mincho\", \"YuMincho\", \"Noto Serif CJK JP\", \"Noto Serif JP\", serif",
+          "description": "本文のフォント。3 OS で使えるようフォールバックを並べてください。"
+        },
+        "markdownFormal.font.heading": {
+          "type": "string",
+          "default": "\"Hiragino Sans\", \"Yu Gothic\", \"Meiryo\", \"Noto Sans CJK JP\", \"Noto Sans JP\", sans-serif",
+          "description": "見出しのフォント。"
+        },
+        "markdownFormal.font.mono": {
+          "type": "string",
+          "default": "\"Menlo\", \"Consolas\", \"DejaVu Sans Mono\", monospace",
+          "description": "コードのフォント。"
+        },
+        "markdownFormal.font.size": {
+          "type": "string",
+          "default": "10.5pt",
+          "description": "本文の文字サイズ。"
+        },
+        "markdownFormal.font.lineHeight": {
+          "type": "number",
+          "default": 1.75,
+          "description": "本文の行間。"
+        },
+        "markdownFormal.heading.style": {
+          "type": "string",
+          "default": "band",
+          "enum": ["plain", "band", "underline"],
+          "enumDescriptions": [
+            "装飾なし",
+            "見出し1は帯に白抜き / 見出し2は下罫線",
+            "見出し1・2とも下罫線"
+          ],
+          "description": "見出しの装飾プリセット。"
+        },
+        "markdownFormal.heading.accentColor": {
+          "type": "string",
+          "default": "#4472C4",
+          "description": "見出し1の帯の色。"
+        },
+        "markdownFormal.heading.textColor": {
+          "type": "string",
+          "default": "#2E74B5",
+          "description": "見出し2の文字色。"
+        },
+        "markdownFormal.heading.pageBreakLevel": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0,
+          "maximum": 3,
+          "description": "この階層までの見出しの直前で改ページします。0 で改ページしません。"
+        },
+        "markdownFormal.cover.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "front matter から表紙を生成します。"
+        },
+        "markdownFormal.stamp.color": {
+          "type": "string",
+          "default": "#CC0000",
+          "description": "機密区分スタンプの色。"
+        },
+        "markdownFormal.stamp.rotate": {
+          "type": "number",
+          "default": -8,
+          "description": "機密区分スタンプの傾き (度)。PDF のみ有効。Word では傾きません。"
+        },
+        "markdownFormal.toc.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "目次ページを生成します。Markdown 本体は変更しません。"
+        },
+        "markdownFormal.toc.depth": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 6,
+          "description": "目次に載せる見出しの階層。"
+        },
+        "markdownFormal.toc.title": {
+          "type": "string",
+          "default": "目次",
+          "description": "目次ページの見出し。"
+        },
+        "markdownFormal.pageNumber.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "本文にページ番号を表示します。表紙と目次には付きません。"
+        },
+        "markdownFormal.pageNumber.position": {
+          "type": "string",
+          "default": "bottom-center",
+          "enum": ["bottom-center", "bottom-right", "bottom-left", "top-center", "top-right"],
+          "description": "ページ番号の位置。"
+        },
+        "markdownFormal.outline.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "PDF のしおり (アウトライン) を生成します。"
+        },
+        "markdownFormal.protection.mode": {
+          "type": "string",
+          "default": "restrict",
+          "enum": ["none", "restrict", "sign"],
+          "enumDescriptions": [
+            "保護しない",
+            "編集制限 (権限パスワード)。ビューア任せの抑止であり改ざん防止にはなりません",
+            "電子署名 (改ざん検知)。証明書が必要です。編集制限とは併用できません"
+          ],
+          "description": "PDF の保護方式。restrict と sign は併用できません。"
+        },
+        "markdownFormal.protection.permissions.printing": {
+          "type": "string",
+          "default": "highResolution",
+          "enum": ["none", "lowResolution", "highResolution"],
+          "description": "印刷の許可 (編集制限時)。"
+        },
+        "markdownFormal.protection.permissions.copying": {
+          "type": "boolean",
+          "default": true,
+          "description": "テキストのコピーを許可します (編集制限時)。"
+        },
+        "markdownFormal.protection.permissions.annotating": {
+          "type": "boolean",
+          "default": false,
+          "description": "注釈の追加を許可します (編集制限時)。"
+        },
+        "markdownFormal.signing.certificatePath": {
+          "type": "string",
+          "default": "",
+          "description": "署名用証明書 (.p12 / .pfx) の絶対パス。リポジトリ外に置いてください。パスフレーズはコマンドから SecretStorage に保存します。"
+        },
+        "markdownFormal.signing.reason": {
+          "type": "string",
+          "default": "正式文書として承認",
+          "description": "署名の理由。"
+        },
+        "markdownFormal.signing.location": {
+          "type": "string",
+          "default": "",
+          "description": "署名の場所。"
+        },
+        "markdownFormal.signing.contactInfo": {
+          "type": "string",
+          "default": "",
+          "description": "署名の連絡先。"
+        },
+        "markdownFormal.hash.emit": {
+          "type": "boolean",
+          "default": true,
+          "description": "出力と同時に SHA-256 のハッシュファイル (.sha256) を作成します。文書管理台帳との照合に使います。"
+        },
+        "markdownFormal.browser.executablePath": {
+          "type": "string",
+          "default": "",
+          "description": "Chrome / Edge の実行ファイルパス。空欄なら自動検出します。"
+        },
+        "markdownFormal.docx.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Word (docx) 出力を有効にします。"
+        },
+        "markdownFormal.customCss": {
+          "type": "string",
+          "default": "",
+          "description": "追加で読み込む CSS ファイルの絶対パス。既定のスタイルを上書きできます (PDF のみ)。"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "@cantoo/pdf-lib": "^2.8.1",
+    "@signpdf/placeholder-pdf-lib": "^3.3.0",
+    "@signpdf/signer-p12": "^3.3.0",
+    "@signpdf/signpdf": "^3.3.0",
+    "docx": "^9.7.1",
+    "js-yaml": "^4.1.0",
+    "markdown-it": "^14.1.0",
+    "pagedjs-cli": "^0.4.3",
+    "pdf-lib": "^1.17.1"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/markdown-it": "^14.1.2",
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.5.0"
+  }
+}

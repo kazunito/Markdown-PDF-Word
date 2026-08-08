@@ -1,0 +1,70 @@
+/* ===== 本文ページ ===== */
+@page {
+  size: A4 portrait;
+  margin: 18mm;
+  /* ページ全体を囲む枠 */
+  border: 0.6mm solid #444;
+  padding: 5mm;
+  /* ページ下部中央にページ番号 */
+  @bottom-center { content: counter(page); font-family: "Hiragino Sans"; font-size: 9pt; }
+}
+/* ===== 表紙・目次ページ: ページ番号なし ===== */
+@page cover { @bottom-center { content: none; } counter-increment: page 0;
+               border: none; padding: 0; }   /* 表紙だけ枠なし */
+@page toc   { @bottom-center { content: none; } counter-increment: page 0; }
+
+/* 表紙(pandoc の title block)を 1 ページ独立させる */
+#title-block-header { page: cover; break-after: page; height: 100%; position: relative;
+  display: flex; flex-direction: column; justify-content: center; text-align: center; }
+#title-block-header .title    { font-size: 24pt; margin-bottom: 8mm; }
+#title-block-header .subtitle { font-size: 14pt; margin-bottom: 20mm; }
+#title-block-header .author,
+#title-block-header .date     { font-size: 11pt; margin: 2mm 0; }
+
+/* 目次ページ */
+#TOC { page: toc; break-after: page; }
+#TOC::before { content: "目次"; display: block; font-size: 18pt; margin-bottom: 8mm;
+               font-family: "Hiragino Sans", sans-serif; }
+#TOC ul { list-style: none; padding-left: 0; }
+#TOC ul ul { padding-left: 6mm; }
+#TOC li { margin: 1.5mm 0; }
+#TOC a { text-decoration: none; color: #000; }
+/* 目次にページ番号(リーダー付き) */
+/* 目次: 見出し … 点線 … ページ番号 */
+#TOC a { display: flex; align-items: baseline; }
+#TOC a::before { content: ""; order: 2; flex: 1 1 auto;
+                 border-bottom: 1px dotted #999; margin: 0 2mm; }
+#TOC a::after  { content: target-counter(attr(href), page); order: 3; }
+
+/* 本文の 1 ページ目を 1 とする */
+
+/* ===== 書体 ===== */
+body { font-family: "Hiragino Mincho ProN", serif; font-size: 10.5pt; line-height: 1.75; }
+h1, h2, h3 { font-family: "Hiragino Sans", sans-serif; }
+code, pre { font-family: "Menlo", monospace; font-size: 9pt; }
+
+/* ===== 改ページ ===== */
+h1 { break-before: page; }
+#title-block-header h1.title { break-before: auto; }
+h1, h2, h3 { break-after: avoid; }
+table, pre, img, figure { break-inside: avoid; }
+
+/* ===== ページ幅に収める ===== */
+table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 9pt; }
+th, td { border: 1px solid #999; padding: 3px 5px; word-break: break-all; }
+img { max-width: 100%; height: auto; }
+pre { white-space: pre-wrap; word-break: break-all; }
+
+/* ===== 表紙: 文書管理番号と機密区分スタンプ ===== */
+#title-block-header .docno {
+  position: absolute; top: 0; left: 0;
+  font-family: "Hiragino Sans", sans-serif; font-size: 10pt; letter-spacing: 0.05em;
+}
+#title-block-header .stamp {
+  position: absolute; top: 0; right: 0;
+  font-family: "Hiragino Sans", sans-serif; font-weight: bold;
+  font-size: 16pt; color: #c00; letter-spacing: 0.15em;
+  border: 2.5pt solid #c00; border-radius: 2mm;
+  padding: 2.5mm 5mm 2.5mm 6mm;
+  transform: rotate(-8deg); opacity: 0.85;
+}

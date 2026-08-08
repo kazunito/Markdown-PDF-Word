@@ -1,0 +1,43 @@
+# ===== 秘密情報(絶対にコミットしない) =====
+# 署名用証明書・秘密鍵
+*.p12
+*.pfx
+*.pem
+*.key
+*.crt
+*.cer
+*.der
+*.jks
+*.keystore
+certs/
+certificates/
+secrets/
+
+# パスワード・環境変数
+.env
+.env.*
+*.secret
+*password*
+*passphrase*
+
+# ===== ビルド成果物 =====
+node_modules/
+out/
+dist/
+*.vsix
+*.tsbuildinfo
+
+# ===== 生成された文書(出力サンプルは verify/out/ に置くが追跡しない) =====
+verify/out/
+*.pdf
+*.docx
+*.sha256
+
+# Word の一時ファイル
+~$*
+
+# ===== OS / エディタ =====
+.DS_Store
+Thumbs.db
+.vscode-test/
+verify/vscode-test/
