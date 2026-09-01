@@ -19,7 +19,7 @@ A VSCode extension that converts Markdown into formal PDF and Word (.docx) docum
 | Page border, configurable per page kind | Yes | Yes |
 | Font and heading style presets | Yes | Yes |
 | Wide tables and long lines fitted to the page | Yes | Yes |
-| Long tables split at page boundaries (no heading-only page) | Yes | Yes |
+| Long tables, code blocks and quotes split at page boundaries (no half-empty page) | Yes | Yes |
 | Header row repeated on continued pages | — | Yes |
 | PDF outline (bookmarks) | Yes | — |
 | Edit restriction (permissions password) | Yes | — |
@@ -78,7 +78,7 @@ classification: CONFIDENTIAL
 | `markdownFormal.frame.toc` | `true` | Draw a page border on the table of contents |
 | `markdownFormal.frame.body` | `true` | Draw a page border on the body |
 | `markdownFormal.heading.style` | `band` | Heading decoration (`plain` / `band` / `underline`) |
-| `markdownFormal.heading.pageBreakLevel` | `1` | Break the page before headings up to this level |
+| `markdownFormal.heading.pageBreakLevel` | `2` | Break the page before headings up to this level |
 | `markdownFormal.toc.depth` | `3` | Heading levels listed in the table of contents |
 | `markdownFormal.protection.mode` | `restrict` | Protection mode (`none` / `restrict` / `sign`) |
 | `markdownFormal.hash.emit` | `true` | Also write a `.sha256` file |

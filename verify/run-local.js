@@ -33,7 +33,7 @@ const cfg = {
     style: process.env.MF_HEADING_STYLE || 'band',
     accentColor: '#4472C4',
     textColor: '#2E74B5',
-    pageBreakLevel: 1,
+    pageBreakLevel: 2,
   },
   cover: { enabled: true },
   stamp: { color: '#CC0000', rotate: -8 },

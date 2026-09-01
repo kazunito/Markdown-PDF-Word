@@ -19,7 +19,7 @@
 | ページ枠 (表紙・目次・本文で個別に指定) | ○ | ○ |
 | フォント・見出し装飾の指定 | ○ | ○ |
 | 表や長い行をページ幅に収める | ○ | ○ |
-| 長い表をページ境界で分割 (見出しだけのページを作らない) | ○ | ○ |
+| 長い表・コードブロック・引用をページ境界で分割 (下半分が空くページを作らない) | ○ | ○ |
 | 分割された表の見出し行を続きのページにも表示 | — | ○ |
 | PDF のしおり (アウトライン) | ○ | — |
 | 編集制限 (権限パスワード) | ○ | — |
@@ -82,7 +82,7 @@ classification: 社外秘
 | `markdownFormal.frame.toc` | `true` | 目次にページ枠を描く |
 | `markdownFormal.frame.body` | `true` | 本文にページ枠を描く |
 | `markdownFormal.heading.style` | `band` | 見出しの装飾 (`plain` / `band` / `underline`) |
-| `markdownFormal.heading.pageBreakLevel` | `1` | この階層までの見出しの前で改ページ |
+| `markdownFormal.heading.pageBreakLevel` | `2` | この階層までの見出しの前で改ページ |
 | `markdownFormal.toc.depth` | `3` | 目次に載せる階層 |
 | `markdownFormal.protection.mode` | `restrict` | 保護方式 (`none` / `restrict` / `sign`) |
 | `markdownFormal.hash.emit` | `true` | `.sha256` を併せて出力する |

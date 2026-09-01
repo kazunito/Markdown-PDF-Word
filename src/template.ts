@@ -154,7 +154,11 @@ ${headingStyleCss(cfg)}
 ${pageBreakCss(cfg.heading.pageBreakLevel)}
 #cover .title { break-before: auto; }
 h1, h2, h3 { break-after: avoid; }
-pre, img, figure, blockquote { break-inside: avoid; }
+img, figure { break-inside: avoid; }
+/* コードブロックと引用に break-inside: avoid を付けると、1 ページに収まらないものが
+   丸ごと次ページへ送られ、直前のページの下半分が大きく空く。分割は許可し、
+   先頭・末尾に 1 行だけ取り残さない */
+pre, blockquote { break-inside: auto; orphans: 2; widows: 2; }
 /* 表に break-inside: avoid を付けると表全体が次ページへ移動し、見出しだけが残る。
    表はページ境界で分割してよいものとし、行の途中では切らない */
 tr, th, td { break-inside: avoid; }

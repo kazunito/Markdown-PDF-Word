@@ -36,7 +36,7 @@ export function loadConfig(resource?: vscode.Uri): ExportConfig {
       style: get<HeadingStyle>('heading.style', 'band'),
       accentColor: get('heading.accentColor', '#4472C4'),
       textColor: get('heading.textColor', '#2E74B5'),
-      pageBreakLevel: get('heading.pageBreakLevel', 1),
+      pageBreakLevel: get('heading.pageBreakLevel', 2),
     },
 
     cover: {

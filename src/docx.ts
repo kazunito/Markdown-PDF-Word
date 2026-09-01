@@ -272,6 +272,10 @@ function tokensToDocx(tokens: Token[], cfg: ExportConfig): (Paragraph | Table)[]
             // PDF 側の pageBreakCss と同じ基準で、設定した階層までの見出しの前で改ページする。
             // 本文の先頭見出しで改ページすると白紙ページが出るので除く
             pageBreakBefore: level <= cfg.heading.pageBreakLevel && out.length > 0,
+            // PDF 側の h1, h2, h3 { break-after: avoid } と同じ意図。
+            // 見出しだけがページ末尾に取り残されないよう、次の段落と離さない
+            keepNext: true,
+            keepLines: true,
             children: inlineToRuns(inline, cfg),
           })
         );

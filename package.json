@@ -2,7 +2,7 @@
   "name": "markdown-formal-pdf",
   "displayName": "Markdown Formal PDF / Word",
   "description": "%description%",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "kazunito",
   "license": "MIT",
   "repository": {
@@ -295,7 +295,7 @@
           },
           "markdownFormal.heading.pageBreakLevel": {
             "type": "number",
-            "default": 1,
+            "default": 2,
             "minimum": 0,
             "maximum": 3,
             "description": "%markdownFormal.heading.pageBreakLevel.description%",
