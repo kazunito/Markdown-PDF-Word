@@ -21,7 +21,11 @@ import {
   WidthType,
 } from 'docx';
 import MarkdownIt from 'markdown-it';
+// トークン変数 t と紛れないよう別名で受ける
+import { t as translate } from './i18n';
 import Token from 'markdown-it/lib/token.mjs';
+import { MermaidImage, renderMermaid } from './mermaid';
+import { groupedFigureHeightLimitMm, paperTwip, paperTwipUpright } from './paper';
 import { renderStamp, StampImage } from './stamp';
 import { ExportConfig, ExportInput } from './types';
 
@@ -89,6 +93,13 @@ function toHalfPoints(size: string): number {
 /** "#4472C4" を docx の "4472C4" に変換する */
 function toDocxColor(color: string): string {
   return color.replace(/^#/, '').toUpperCase();
+}
+
+/** ```mermaid のコードブロックかどうか */
+function isMermaidFence(token: Token): boolean {
+  return (
+    token.type === 'fence' && (token.info || '').trim().split(/\s+/)[0].toLowerCase() === 'mermaid'
+  );
 }
 
 /** "18mm" を twip (1/1440 inch) に変換する */
@@ -252,12 +263,34 @@ function buildTable(tokens: Token[], start: number, cfg: ExportConfig): { table:
   };
 }
 
-/** markdown-it のトークン列を docx の段落・表に変換する */
-function tokensToDocx(tokens: Token[], cfg: ExportConfig): (Paragraph | Table)[] {
+/**
+ * Word の図の入る箱の幅と高さ (ピクセル)。
+ * 幅は用紙と余白から求める。高さは PDF と同じ上限 (paper.ts) を使う。
+ * 本文の高さいっぱいを許すと、見出しと図が 1 ページに入らず
+ * 見出しだけが前のページに残る (keepNext があっても Word は入りきらないと守れない)。
+ */
+function bodyBoxPx(cfg: ExportConfig): { width: number; height: number } {
+  const paper = paperTwip(cfg);
+  const margin = toTwip(cfg.page.margin) * 2;
+  const toPx = (twip: number): number => Math.max(96, Math.round((twip / 1440) * 96));
+  const mmToPx = (mm: number): number => Math.max(96, Math.round((mm / 25.4) * 96));
+  return { width: toPx(paper.width - margin), height: mmToPx(groupedFigureHeightLimitMm(cfg)) };
+}
+
+/**
+ * markdown-it のトークン列を docx の段落・表に変換する。
+ * mermaid には renderMermaid の結果を出現順に入れる (空なら図にしない)。
+ */
+function tokensToDocx(
+  tokens: Token[],
+  cfg: ExportConfig,
+  mermaid: MermaidImage[] = []
+): (Paragraph | Table)[] {
   const out: (Paragraph | Table)[] = [];
   let listDepth = -1;
   let ordered = false;
   let quote = false;
+  let mermaidIndex = 0;
 
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];
@@ -310,7 +343,37 @@ function tokensToDocx(tokens: Token[], cfg: ExportConfig): (Paragraph | Table)[]
       }
 
       case 'fence':
-      case 'code_block':
+      case 'code_block': {
+        if (isMermaidFence(t)) {
+          const image = mermaid[mermaidIndex++];
+          if (image && image.png && image.width > 0) {
+            // PDF 側は SVG が本文幅いっぱいに広がる。Word でも同じ大きさに見えるよう、
+            // 縦横比を保ったまま本文幅 (× mermaid.maxWidth) に合わせる。
+            // 縦長の図はページからあふれるので、本文の高さでも抑える
+            const box = bodyBoxPx(cfg);
+            let width = Math.round((box.width * cfg.mermaid.maxWidth) / 100);
+            let height = Math.round((image.height / image.width) * width);
+            if (height > box.height) {
+              width = Math.round((image.width / image.height) * box.height);
+              height = box.height;
+            }
+            out.push(
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 120, after: 120 },
+                children: [
+                  new ImageRun({
+                    type: 'png',
+                    data: image.png,
+                    transformation: { width, height },
+                  }),
+                ],
+              })
+            );
+            break;
+          }
+          // 図にできなかったときは、下のコードブロックとしてそのまま出す
+        }
         out.push(
           new Paragraph({
             children: t.content
@@ -326,6 +389,7 @@ function tokensToDocx(tokens: Token[], cfg: ExportConfig): (Paragraph | Table)[]
           })
         );
         break;
+      }
 
       case 'bullet_list_open':
         listDepth++;
@@ -376,6 +440,11 @@ function buildCoverChildren(
   stamp: StampImage | undefined
 ): Paragraph[] {
   const m = input.meta;
+  // 表紙に出す項目が 1 つも無ければ表紙を作らない (PDF 側 template.ts buildCover と同じ判定)。
+  // これを省くと、下の空行だけの表紙セクションができて 1 ページ目が真っ白になる
+  if (!m.title && !m.docno && !m.classification) {
+    return [];
+  }
   const headingFont = firstFont(cfg.font.heading);
   const stampColor = toDocxColor(cfg.stamp.color);
   const children: Paragraph[] = [];
@@ -496,11 +565,24 @@ function borderOptions(enabled: boolean, cfg: ExportConfig) {
   };
 }
 
-/** Word 文書を生成する */
-export async function renderDocx(input: ExportInput, cfg: ExportConfig): Promise<Buffer> {
+/** Word 文書を生成する。図にできなかった Mermaid の理由は notes に追加する */
+export async function renderDocx(
+  input: ExportInput,
+  cfg: ExportConfig,
+  notes: string[] = []
+): Promise<Buffer> {
   const md = new MarkdownIt({ html: false, linkify: true });
   const tokens = md.parse(input.markdown, {});
-  const bodyChildren = tokensToDocx(tokens, cfg);
+
+  // Word は図を描けないため、PDF と同じブラウザで描いた PNG を貼る
+  const mermaid = cfg.mermaid.enabled
+    ? await renderMermaid(tokens.filter(isMermaidFence).map((t) => t.content), cfg, true)
+    : [];
+  for (const reason of new Set(mermaid.filter((m) => !m.png).map((m) => m.error || 'unknown'))) {
+    notes.push(translate('A Mermaid diagram could not be drawn and was kept as code: {0}', reason));
+  }
+
+  const bodyChildren = tokensToDocx(tokens, cfg, mermaid);
 
   const bodyFont = firstFont(cfg.font.body);
   const headingFont = firstFont(cfg.font.heading);
@@ -508,9 +590,10 @@ export async function renderDocx(input: ExportInput, cfg: ExportConfig): Promise
   const headingColor = toDocxColor(cfg.heading.textColor);
   const margin = toTwip(cfg.page.margin);
 
+  const paper = paperTwipUpright(cfg);
   const pageSetup = {
     margin: { top: margin, bottom: margin, left: margin, right: margin },
-    size: { orientation: cfg.page.orientation },
+    size: { width: paper.width, height: paper.height, orientation: cfg.page.orientation },
   };
 
   const footer =

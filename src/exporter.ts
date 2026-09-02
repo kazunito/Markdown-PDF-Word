@@ -3,7 +3,8 @@ import * as path from 'path';
 import { renderDocx } from './docx';
 import { t } from './i18n';
 import { sha256Line } from './hash';
-import { parseMarkdown, renderBody } from './markdown';
+import { MERMAID_PLACEHOLDER, parseMarkdown, renderBody } from './markdown';
+import { renderMermaid } from './mermaid';
 import { restrictPdf, signPdf } from './protect';
 import { renderPdf } from './render';
 import { buildHtml } from './template';
@@ -39,13 +40,89 @@ function resolveOutputPath(sourcePath: string, cfg: ExportConfig, ext: string): 
   return path.join(dir, base);
 }
 
-/** Markdown ファイルを読んで解析する */
-export function loadInput(sourcePath: string): { input: ExportInput; bodyHtml: string } {
+/** Markdown ファイルを読んで解析する。diagrams には Mermaid のコードが出現順に入る */
+export function loadInput(sourcePath: string): {
+  input: ExportInput;
+  bodyHtml: string;
+  diagrams: string[];
+} {
   const raw = fs.readFileSync(sourcePath, 'utf8');
   const input = parseMarkdown(sourcePath, raw);
-  const { html, headings } = renderBody(input.markdown);
+  const { html, headings, diagrams } = renderBody(input.markdown);
   input.headings = headings;
-  return { input, bodyHtml: html };
+  return { input, bodyHtml: html, diagrams };
+}
+
+/** HTML に埋め込む文字列を安全にする */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * 本文 HTML の Mermaid の目印を図 (SVG) に差し替える。
+ * 描けなかった図はコードブロックのまま出し、理由を notes に残す。
+ */
+async function embedMermaid(
+  bodyHtml: string,
+  diagrams: string[],
+  cfg: ExportConfig,
+  notes: string[]
+): Promise<string> {
+  const placeholder = new RegExp(
+    `<figure class="mermaid-figure" ${MERMAID_PLACEHOLDER}="(\\d+)"></figure>`,
+    'g'
+  );
+
+  const asCode = (index: number): string =>
+    `<pre><code class="language-mermaid">${escapeHtml(diagrams[index] || '')}</code></pre>`;
+
+  if (diagrams.length === 0) {
+    return bodyHtml;
+  }
+  if (!cfg.mermaid.enabled) {
+    return bodyHtml.replace(placeholder, (_m, n: string) => asCode(Number(n)));
+  }
+
+  const images = await renderMermaid(diagrams, cfg, false);
+  const failed = new Set<string>();
+
+  const html = bodyHtml.replace(placeholder, (_m, n: string) => {
+    const index = Number(n);
+    const image = images[index];
+    if (!image || !image.svg) {
+      failed.add(image?.error || 'unknown error');
+      return asCode(index);
+    }
+    return `<figure class="mermaid-figure">${image.svg}</figure>`;
+  });
+
+  for (const reason of failed) {
+    notes.push(t('A Mermaid diagram could not be drawn and was kept as code: {0}', reason));
+  }
+  return groupHeadingWithFigure(html, cfg.heading.pageBreakLevel);
+}
+
+/**
+ * 見出しと、その直後の図を 1 つの塊にする。
+ *
+ * Paged.js の break-after: avoid は、図が入りきらないときに見出しを引き連れない。
+ * 見出しだけが前のページの末尾に残り、図が次のページの先頭に出る。
+ * 塊にして break-inside: avoid を掛けると、2 つが必ず同じページへ移る (CSS は template.ts)。
+ *
+ * 章頭で改ページする見出しは対象外。塊にすると改ページの指定が効かなくなる。
+ */
+function groupHeadingWithFigure(html: string, pageBreakLevel: number): string {
+  const headingWithFigure =
+    /<h([1-6])([^>]*)>([\s\S]*?)<\/h\1>\s*(<figure class="mermaid-figure">[\s\S]*?<\/figure>)/g;
+  return html.replace(headingWithFigure, (whole, level: string, attrs, text, figure) =>
+    Number(level) <= pageBreakLevel
+      ? whole
+      : `<div class="figure-block"><h${level}${attrs}>${text}</h${level}>${figure}</div>`
+  );
 }
 
 /** ハッシュファイルを書き出す */
@@ -61,8 +138,10 @@ export async function exportPdf(
   cfg: ExportConfig,
   secrets: SecretProvider
 ): Promise<ExportResult> {
-  const { input, bodyHtml } = loadInput(sourcePath);
+  const { input, bodyHtml, diagrams } = loadInput(sourcePath);
   const notes: string[] = [];
+
+  const body = await embedMermaid(bodyHtml, diagrams, cfg, notes);
 
   let extraCss = '';
   if (cfg.customCss) {
@@ -73,7 +152,7 @@ export async function exportPdf(
     }
   }
 
-  const html = buildHtml(input, bodyHtml, input.headings, cfg, extraCss);
+  const html = buildHtml(input, body, input.headings, cfg, extraCss);
   let pdf = await renderPdf(html, cfg);
 
   // 保護。restrict と sign は排他
@@ -121,15 +200,13 @@ export async function exportPdf(
 /** Word を出力する */
 export async function exportDocx(sourcePath: string, cfg: ExportConfig): Promise<ExportResult> {
   const { input } = loadInput(sourcePath);
-  const buffer = await renderDocx(input, cfg);
+  const notes: string[] = [];
+  const buffer = await renderDocx(input, cfg, notes);
 
   const outputPath = resolveOutputPath(sourcePath, cfg, '.docx');
   fs.writeFileSync(outputPath, buffer);
 
   const hashPath = cfg.hash.emit ? emitHash(buffer, outputPath) : undefined;
-  return {
-    outputPath,
-    hashPath,
-    notes: [t('Word output is an editable draft. Use the PDF as the authoritative copy.')],
-  };
+  notes.push(t('Word output is an editable draft. Use the PDF as the authoritative copy.'));
+  return { outputPath, hashPath, notes };
 }

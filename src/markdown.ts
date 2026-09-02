@@ -2,6 +2,9 @@ import * as yaml from 'js-yaml';
 import MarkdownIt from 'markdown-it';
 import { DocumentMeta, ExportInput, Heading } from './types';
 
+/** Mermaid の置き換え目印。exporter が図に差し替える */
+export const MERMAID_PLACEHOLDER = 'data-markdown-formal-mermaid';
+
 /**
  * Markdown の解析。元ファイルは読み取るだけで書き換えない。
  * front matter を分離し、見出しに ID を振り、HTML を組み立てる。
@@ -79,10 +82,28 @@ export function slugify(text: string, used: Set<string>): string {
   return id;
 }
 
-/** markdown-it のインスタンスを作り、見出しに ID を付与する */
-function createRenderer(headings: Heading[]): MarkdownIt {
+/**
+ * markdown-it のインスタンスを作り、見出しに ID を付与する。
+ * Mermaid のコードブロックは図に差し替えるため、目印だけを残して本文を diagrams に集める。
+ */
+function createRenderer(headings: Heading[], diagrams: string[]): MarkdownIt {
   const md = new MarkdownIt({ html: true, linkify: true, typographer: false });
   const used = new Set<string>();
+
+  const defaultFence =
+    md.renderer.rules.fence ||
+    ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
+
+  md.renderer.rules.fence = (tokens, idx, options, env, self) => {
+    const token = tokens[idx];
+    const info = (token.info || '').trim().split(/\s+/)[0].toLowerCase();
+    if (info === 'mermaid') {
+      const index = diagrams.length;
+      diagrams.push(token.content);
+      return `<figure class="mermaid-figure" ${MERMAID_PLACEHOLDER}="${index}"></figure>\n`;
+    }
+    return defaultFence(tokens, idx, options, env, self);
+  };
 
   const defaultHeadingOpen =
     md.renderer.rules.heading_open ||
@@ -108,17 +129,25 @@ function createRenderer(headings: Heading[]): MarkdownIt {
 export function parseMarkdown(sourcePath: string, raw: string): ExportInput {
   const { meta, body } = splitFrontMatter(raw);
   const headings: Heading[] = [];
-  const md = createRenderer(headings);
+  const md = createRenderer(headings, []);
   // 見出しの収集のために一度描画する。HTML 自体は renderBody で使い回す
   md.render(body);
 
   return { sourcePath, markdown: body, meta, headings };
 }
 
-/** 本文の HTML を生成する。見出し ID は parseMarkdown と同じ規則で振られる */
-export function renderBody(body: string): { html: string; headings: Heading[] } {
+/**
+ * 本文の HTML を生成する。見出し ID は parseMarkdown と同じ規則で振られる。
+ * diagrams には Mermaid のコードが出現順に入る。
+ */
+export function renderBody(body: string): {
+  html: string;
+  headings: Heading[];
+  diagrams: string[];
+} {
   const headings: Heading[] = [];
-  const md = createRenderer(headings);
+  const diagrams: string[] = [];
+  const md = createRenderer(headings, diagrams);
   const html = md.render(body);
-  return { html, headings };
+  return { html, headings, diagrams };
 }

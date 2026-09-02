@@ -1,3 +1,4 @@
+import { figureHeightLimitMm, groupedFigureHeightLimitMm, paperMm } from './paper';
 import { ExportConfig, ExportInput, Heading } from './types';
 
 /**
@@ -56,8 +57,30 @@ function pageBreakCss(level: number): string {
   return `${selectors} { break-before: page; }`;
 }
 
+/** "18mm" を mm に直す */
+function toMm(value: string): number {
+  const m = value.match(/([\d.]+)\s*(mm|cm|pt|in)?/);
+  if (!m) {
+    return 18;
+  }
+  const n = parseFloat(m[1]);
+  switch (m[2]) {
+    case 'cm':
+      return n * 10;
+    case 'pt':
+      return (n / 72) * 25.4;
+    case 'in':
+      return n * 25.4;
+    case 'mm':
+    default:
+      return n;
+  }
+}
+
 /** 印刷用 CSS 全体を組み立てる */
 export function buildCss(cfg: ExportConfig): string {
+  // 用紙名ではなく実寸を @page に渡す (paper.ts の註記を参照)
+  const paper = paperMm(cfg);
   const box = marginBox(cfg.pageNumber.position);
   const pageNumberContent = cfg.pageNumber.enabled
     ? `${box} { content: counter(page); font-family: ${cfg.font.heading}; font-size: 9pt; }`
@@ -66,7 +89,7 @@ export function buildCss(cfg: ExportConfig): string {
   return `
 /* ===== 本文ページ ===== */
 @page {
-  size: ${cfg.page.format} ${cfg.page.orientation};
+  size: ${paper.width}mm ${paper.height}mm;
   margin: ${cfg.page.margin};
   ${frameRule(cfg.frame.body, cfg)}
   ${pageNumberContent}
@@ -171,6 +194,18 @@ table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 
 th, td { border: 1px solid #999; padding: 3px 5px; word-break: break-all; }
 th { background: #f2f2f2; }
 img { max-width: 100%; height: auto; }
+/* Mermaid の図。mermaid が付ける固有の幅指定を打ち消し、本文の幅と高さに収める */
+.mermaid-figure { margin: 3mm 0; text-align: center; }
+.mermaid-figure svg {
+  max-width: ${cfg.mermaid.maxWidth}% !important;
+  max-height: ${figureHeightLimitMm(cfg)}mm;
+  width: auto !important;
+  height: auto;
+}
+/* 見出しと直後の図の塊 (exporter.ts が作る)。2 つを必ず同じページに置く。
+   塊が 1 ページに収まらないと丸ごと落ちるため、見出しの分だけ図の高さの上限を下げる */
+.figure-block { break-inside: avoid; }
+.figure-block .mermaid-figure svg { max-height: ${groupedFigureHeightLimitMm(cfg)}mm; }
 pre { white-space: pre-wrap; word-break: break-all; background: #f7f7f7; padding: 3mm; }
 blockquote { margin: 0 0 0 5mm; padding-left: 3mm; border-left: 3px solid #ccc; color: #444; }
 /* 収まらない図表は <div class="fit"> で囲んで縮小する */

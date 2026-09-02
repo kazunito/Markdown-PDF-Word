@@ -11,7 +11,12 @@ const { exportPdf, exportDocx } = require('../out/exporter');
 /** VSCode 設定の既定値と同じ内容を手で組み立てる */
 const cfg = {
   outputDirectory: path.join(__dirname, 'out'),
-  page: { format: 'A4', orientation: 'portrait', margin: '18mm' },
+  // MF_FORMAT で用紙 (A4/A3/B5/Letter/Legal)、MF_ORIENTATION で向き (portrait/landscape) を変える
+  page: {
+    format: process.env.MF_FORMAT || 'A4',
+    orientation: process.env.MF_ORIENTATION || 'portrait',
+    margin: '18mm',
+  },
   frame: {
     // MF_FRAME=on で全ページ枠あり、off で枠なし。既定は表紙のみ枠なし
     cover: process.env.MF_FRAME === 'on',
@@ -54,6 +59,12 @@ const cfg = {
   hash: { emit: true },
   browser: { executablePath: process.env.MF_BROWSER || '' },
   docx: { enabled: true },
+  // MF_MERMAID=off で図にせずコードブロックのまま出す。MF_MERMAID_THEME で配色を変える
+  mermaid: {
+    enabled: process.env.MF_MERMAID !== 'off',
+    theme: process.env.MF_MERMAID_THEME || 'neutral',
+    maxWidth: Number(process.env.MF_MERMAID_MAX_WIDTH || 100),
+  },
   customCss: '',
 };
 

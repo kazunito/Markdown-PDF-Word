@@ -2,7 +2,7 @@
   "name": "markdown-formal-pdf",
   "displayName": "Markdown Formal PDF / Word",
   "description": "%description%",
-  "version": "0.2.1",
+  "version": "0.3.1",
   "publisher": "kazunito",
   "license": "MIT",
   "repository": {
@@ -377,6 +377,38 @@
             "default": true,
             "description": "%markdownFormal.outline.enabled.description%",
             "order": 9
+          },
+          "markdownFormal.mermaid.enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "%markdownFormal.mermaid.enabled.description%",
+            "order": 10
+          },
+          "markdownFormal.mermaid.theme": {
+            "type": "string",
+            "default": "neutral",
+            "enum": [
+              "default",
+              "neutral",
+              "forest",
+              "dark"
+            ],
+            "enumDescriptions": [
+              "%markdownFormal.mermaid.theme.enum.default%",
+              "%markdownFormal.mermaid.theme.enum.neutral%",
+              "%markdownFormal.mermaid.theme.enum.forest%",
+              "%markdownFormal.mermaid.theme.enum.dark%"
+            ],
+            "description": "%markdownFormal.mermaid.theme.description%",
+            "order": 11
+          },
+          "markdownFormal.mermaid.maxWidth": {
+            "type": "number",
+            "default": 100,
+            "minimum": 10,
+            "maximum": 100,
+            "description": "%markdownFormal.mermaid.maxWidth.description%",
+            "order": 12
           }
         }
       },
@@ -495,7 +527,7 @@
     ]
   },
   "scripts": {
-    "compile": "tsc -p ./",
+    "compile": "tsc -p ./ && node scripts/copy-mermaid.js",
     "watch": "tsc -watch -p ./",
     "vscode:prepublish": "npm run compile",
     "package": "vsce package"
@@ -518,6 +550,7 @@
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^20.14.0",
     "@types/vscode": "^1.85.0",
+    "mermaid": "^11.17.2",
     "typescript": "^5.5.0"
   },
   "l10n": "./l10n"

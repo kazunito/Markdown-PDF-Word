@@ -10,6 +10,7 @@
 | 機能 | PDF | Word |
 |---|---|---|
 | Markdown を変更しない | ○ | ○ |
+| 用紙サイズ・向きの指定 (A4/A3/B5/Letter/Legal × 縦横) | ○ | ○ |
 | 表紙を独立 1 ページ (front matter から生成) | ○ | ○ |
 | 文書管理番号を表紙に配置 | ○ | ○ |
 | 機密区分の赤いスタンプ (社外秘 等) | ○ (傾き付き) | ○ (傾き付き。PDF と同じ画像を貼る) |
@@ -18,6 +19,7 @@
 | 章頭で改ページ | ○ | ○ |
 | ページ枠 (表紙・目次・本文で個別に指定) | ○ | ○ |
 | フォント・見出し装飾の指定 | ○ | ○ |
+| Mermaid のコードブロックを図として描画 | ○ (ベクタ) | ○ (画像) |
 | 表や長い行をページ幅に収める | ○ | ○ |
 | 長い表・コードブロック・引用をページ境界で分割 (下半分が空くページを作らない) | ○ | ○ |
 | 分割された表の見出し行を続きのページにも表示 | — | ○ |
@@ -31,7 +33,8 @@ Word 出力は**編集用ドラフト**の位置づけです。正本は PDF を
 ## 必要なもの
 
 - VSCode 1.85 以降
-- **Google Chrome または Microsoft Edge** (PDF 化のレンダリングに使用)
+- **Google Chrome または Microsoft Edge** (PDF 化のレンダリング、機密スタンプ、
+  Mermaid の図の描画に使用。後の 2 つは Word 出力でも使います)
   - 標準的なインストール先を自動検出します
   - 見つからない場合は `markdownFormal.browser.executablePath` にパスを指定してください
   - Chromium の追加ダウンロードは行いません
@@ -49,6 +52,7 @@ Windows / macOS / Linux で動作します (すべて純 JavaScript のため OS
 ### Markdown の書き方
 
 表紙は front matter から作られます。本文に表紙用の見出しを書く必要はありません。
+`title` `docno` `classification` のどれも無い場合は、PDF・Word とも表紙ページを作りません。
 
 ```markdown
 ---
@@ -76,13 +80,15 @@ classification: 社外秘
 
 | 設定 | 既定値 | 説明 |
 |---|---|---|
-| `markdownFormal.page.format` | `A4` | 用紙サイズ |
+| `markdownFormal.page.format` | `A4` | 用紙サイズ (A4/A3/B5/Letter/Legal。B5 は JIS B5 = 182 x 257mm) |
 | `markdownFormal.page.orientation` | `portrait` | 用紙の向き (文書全体) |
 | `markdownFormal.frame.cover` | `false` | 表紙にページ枠を描く |
 | `markdownFormal.frame.toc` | `true` | 目次にページ枠を描く |
 | `markdownFormal.frame.body` | `true` | 本文にページ枠を描く |
 | `markdownFormal.heading.style` | `band` | 見出しの装飾 (`plain` / `band` / `underline`) |
 | `markdownFormal.heading.pageBreakLevel` | `2` | この階層までの見出しの前で改ページ |
+| `markdownFormal.mermaid.enabled` | `true` | ```` ```mermaid ```` を図として描く |
+| `markdownFormal.mermaid.theme` | `neutral` | 図の配色 (`default` / `neutral` / `forest` / `dark`) |
 | `markdownFormal.toc.depth` | `3` | 目次に載せる階層 |
 | `markdownFormal.protection.mode` | `restrict` | 保護方式 (`none` / `restrict` / `sign`) |
 | `markdownFormal.hash.emit` | `true` | `.sha256` を併せて出力する |

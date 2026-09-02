@@ -10,6 +10,7 @@ A VSCode extension that converts Markdown into formal PDF and Word (.docx) docum
 | Feature | PDF | Word |
 |---|---|---|
 | Leaves the Markdown source untouched | Yes | Yes |
+| Paper size and orientation (A4/A3/B5/Letter/Legal, portrait/landscape) | Yes | Yes |
 | Cover page generated from front matter | Yes | Yes |
 | Document control number on the cover | Yes | Yes |
 | Red confidentiality stamp | Yes (rotated) | Yes (rotated; the same image as the PDF) |
@@ -18,6 +19,7 @@ A VSCode extension that converts Markdown into formal PDF and Word (.docx) docum
 | Page break before each chapter | Yes | Yes |
 | Page border, configurable per page kind | Yes | Yes |
 | Font and heading style presets | Yes | Yes |
+| Mermaid code blocks drawn as diagrams | Yes (vector) | Yes (image) |
 | Wide tables and long lines fitted to the page | Yes | Yes |
 | Long tables, code blocks and quotes split at page boundaries (no half-empty page) | Yes | Yes |
 | Header row repeated on continued pages | — | Yes |
@@ -31,7 +33,8 @@ Word output is intended as an **editable draft**. The PDF is the authoritative c
 ## Requirements
 
 - VSCode 1.85 or later
-- **Google Chrome or Microsoft Edge** — used as the rendering engine for PDF output
+- **Google Chrome or Microsoft Edge** — used as the rendering engine for PDF output,
+  for the confidentiality stamp and for Mermaid diagrams (the last two apply to Word as well)
   - Standard install locations are detected automatically
   - Otherwise set `markdownFormal.browser.executablePath`
   - No Chromium download is performed
@@ -46,7 +49,7 @@ Works on Windows, macOS and Linux. Everything is pure JavaScript, so a single VS
    - `Markdown Formal: Convert to Word (docx)`
    - `Markdown Formal: Convert to both PDF and Word`
 
-The cover page is built from front matter:
+The cover page is built from front matter. If none of `title`, `docno` and `classification` is present, no cover page is produced in either PDF or Word:
 
 ```markdown
 ---
@@ -72,13 +75,15 @@ classification: CONFIDENTIAL
 
 | Setting | Default | Description |
 |---|---|---|
-| `markdownFormal.page.format` | `A4` | Paper size |
+| `markdownFormal.page.format` | `A4` | Paper size (A4/A3/B5/Letter/Legal; B5 is JIS B5, 182 x 257 mm) |
 | `markdownFormal.page.orientation` | `portrait` | Paper orientation (whole document) |
 | `markdownFormal.frame.cover` | `false` | Draw a page border on the cover |
 | `markdownFormal.frame.toc` | `true` | Draw a page border on the table of contents |
 | `markdownFormal.frame.body` | `true` | Draw a page border on the body |
 | `markdownFormal.heading.style` | `band` | Heading decoration (`plain` / `band` / `underline`) |
 | `markdownFormal.heading.pageBreakLevel` | `2` | Break the page before headings up to this level |
+| `markdownFormal.mermaid.enabled` | `true` | Draw ```` ```mermaid ```` code blocks as diagrams |
+| `markdownFormal.mermaid.theme` | `neutral` | Diagram colours (`default` / `neutral` / `forest` / `dark`) |
 | `markdownFormal.toc.depth` | `3` | Heading levels listed in the table of contents |
 | `markdownFormal.protection.mode` | `restrict` | Protection mode (`none` / `restrict` / `sign`) |
 | `markdownFormal.hash.emit` | `true` | Also write a `.sha256` file |

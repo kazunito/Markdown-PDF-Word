@@ -30,6 +30,8 @@ export interface Heading {
 }
 
 export type ProtectionMode = 'none' | 'restrict' | 'sign';
+/** Mermaid の配色。neutral は白黒印刷向き */
+export type MermaidTheme = 'default' | 'neutral' | 'forest' | 'dark';
 export type HeadingStyle = 'plain' | 'band' | 'underline';
 export type PrintingPermission = 'none' | 'lowResolution' | 'highResolution';
 
@@ -117,6 +119,12 @@ export interface ExportConfig {
 
   docx: {
     enabled: boolean;
+  };
+
+  mermaid: {
+    enabled: boolean;
+    theme: MermaidTheme;
+    maxWidth: number;
   };
 
   customCss: string;

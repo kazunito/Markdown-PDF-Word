@@ -1,5 +1,11 @@
 import * as vscode from 'vscode';
-import { ExportConfig, HeadingStyle, PrintingPermission, ProtectionMode } from './types';
+import {
+  ExportConfig,
+  HeadingStyle,
+  MermaidTheme,
+  PrintingPermission,
+  ProtectionMode,
+} from './types';
 
 /** VSCode の設定から変換用の設定を組み立てる */
 export function loadConfig(resource?: vscode.Uri): ExportConfig {
@@ -89,6 +95,12 @@ export function loadConfig(resource?: vscode.Uri): ExportConfig {
 
     docx: {
       enabled: get('docx.enabled', true),
+    },
+
+    mermaid: {
+      enabled: get('mermaid.enabled', true),
+      theme: get<MermaidTheme>('mermaid.theme', 'neutral'),
+      maxWidth: get('mermaid.maxWidth', 100),
     },
 
     customCss: get('customCss', ''),

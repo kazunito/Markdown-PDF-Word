@@ -3,6 +3,7 @@
 .gitignore
 .git/**
 src/**
+scripts/**
 verify/**
 docs/**
 samples/**
