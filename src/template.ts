@@ -205,6 +205,8 @@ img { max-width: 100%; height: auto; }
 /* 見出しと直後の図の塊 (exporter.ts が作る)。2 つを必ず同じページに置く。
    塊が 1 ページに収まらないと丸ごと落ちるため、見出しの分だけ図の高さの上限を下げる */
 .figure-block { break-inside: avoid; }
+/* 章頭の短い説明と最初の小さな表を同じページに置き、説明だけのページを防ぐ */
+.section-start { break-inside: avoid; }
 .figure-block .mermaid-figure svg { max-height: ${groupedFigureHeightLimitMm(cfg)}mm; }
 pre { white-space: pre-wrap; word-break: break-all; background: #f7f7f7; padding: 3mm; }
 blockquote { margin: 0 0 0 5mm; padding-left: 3mm; border-left: 3px solid #ccc; color: #444; }

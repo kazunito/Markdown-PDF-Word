@@ -52,6 +52,7 @@
   "markdownFormal.mermaid.theme.enum.forest": "forest: green",
   "markdownFormal.mermaid.theme.enum.dark": "dark: light lines on a dark background (uses a lot of toner)",
   "markdownFormal.mermaid.maxWidth.description": "Largest diagram width as a percentage of the text width (10-100). Lower it when a wide diagram should stay small.",
+  "markdownFormal.mermaid.maxHeightMm.description": "Preferred maximum diagram height in millimetres (40-300). If it does not fit, it is automatically reduced to the printable page height.",
   "configuration.markdownFormal.protection.title": "4. Protection and tamper detection",
   "markdownFormal.protection.mode.description": "PDF protection mode. Restrict and sign cannot be combined.",
   "markdownFormal.protection.mode.enum.none": "No protection",

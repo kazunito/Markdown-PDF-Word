@@ -52,6 +52,7 @@
   "markdownFormal.mermaid.theme.enum.forest": "forest: 緑系",
   "markdownFormal.mermaid.theme.enum.dark": "dark: 濃い背景に明るい線 (トナーを多く使います)",
   "markdownFormal.mermaid.maxWidth.description": "図の最大幅を本文幅に対する割合 (10〜100%) で指定します。横に広い図を小さく収めたいときは値を下げます。",
+  "markdownFormal.mermaid.maxHeightMm.description": "図の希望最大高さをmm単位 (40〜300mm) で指定します。収まらない場合は印刷可能なページ高さまで自動的に縮小します。",
   "configuration.markdownFormal.protection.title": "4. 保護と改ざん検知",
   "markdownFormal.protection.mode.description": "PDF の保護方式。restrict と sign は併用できません。",
   "markdownFormal.protection.mode.enum.none": "保護しない",

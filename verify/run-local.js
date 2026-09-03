@@ -38,7 +38,7 @@ const cfg = {
     style: process.env.MF_HEADING_STYLE || 'band',
     accentColor: '#4472C4',
     textColor: '#2E74B5',
-    pageBreakLevel: 2,
+    pageBreakLevel: Number(process.env.MF_PAGE_BREAK_LEVEL || 2),
   },
   cover: { enabled: true },
   stamp: { color: '#CC0000', rotate: -8 },
@@ -64,6 +64,7 @@ const cfg = {
     enabled: process.env.MF_MERMAID !== 'off',
     theme: process.env.MF_MERMAID_THEME || 'neutral',
     maxWidth: Number(process.env.MF_MERMAID_MAX_WIDTH || 100),
+    maxHeightMm: Number(process.env.MF_MERMAID_MAX_HEIGHT_MM || 120),
   },
   customCss: '',
 };

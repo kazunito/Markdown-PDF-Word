@@ -89,6 +89,8 @@ classification: 社外秘
 | `markdownFormal.heading.pageBreakLevel` | `2` | この階層までの見出しの前で改ページ |
 | `markdownFormal.mermaid.enabled` | `true` | ```` ```mermaid ```` を図として描く |
 | `markdownFormal.mermaid.theme` | `neutral` | 図の配色 (`default` / `neutral` / `forest` / `dark`) |
+| `markdownFormal.mermaid.maxWidth` | `100` | 図の最大幅（本文幅に対する割合） |
+| `markdownFormal.mermaid.maxHeightMm` | `120` | 図の希望最大高さ（mm）。収まらない場合は自動縮小 |
 | `markdownFormal.toc.depth` | `3` | 目次に載せる階層 |
 | `markdownFormal.protection.mode` | `restrict` | 保護方式 (`none` / `restrict` / `sign`) |
 | `markdownFormal.hash.emit` | `true` | `.sha256` を併せて出力する |

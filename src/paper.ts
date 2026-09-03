@@ -72,11 +72,15 @@ function lengthMm(value: string, fallback: number): number {
  * Paged.js は 1 ページに収まらない図を丸ごと落とす (白紙ページになる) ため、
  * 本文の高さに収まるところまで縮める。**Word も同じ値を使い、見え方を揃える**。
  */
-export function figureHeightLimitMm(cfg: ExportConfig): number {
+function availableFigureHeightMm(cfg: ExportConfig): number {
   const frame = cfg.frame.body ? lengthMm(cfg.frame.padding, 5) * 2 : 0;
   const margin = lengthMm(cfg.page.margin, 18) * 2;
   // 12mm は図の上下余白 (3mm × 2) と、ぎりぎりで収まらず落とされないための余裕
-  return Math.max(40, Math.round(paperMm(cfg).height - margin - frame - 12));
+  return paperMm(cfg).height - margin - frame - 12;
+}
+
+export function figureHeightLimitMm(cfg: ExportConfig): number {
+  return Math.max(40, Math.min(cfg.mermaid.maxHeightMm, availableFigureHeightMm(cfg)));
 }
 
 /**
@@ -85,5 +89,10 @@ export function figureHeightLimitMm(cfg: ExportConfig): number {
  * PDF は塊ごと次ページへ送られ、Word は見出しだけが前ページに残る。
  */
 export function groupedFigureHeightLimitMm(cfg: ExportConfig): number {
-  return Math.max(40, figureHeightLimitMm(cfg) - 16);
+  // 見出しの場所を確保した残りと、読みやすさの基準となる目標高さの小さい方を使う。
+  // 横向きなどページが低い場合だけ、安全に収まる高さまで自動的に下げる。
+  return Math.max(
+    40,
+    Math.min(cfg.mermaid.maxHeightMm, availableFigureHeightMm(cfg) - 16)
+  );
 }

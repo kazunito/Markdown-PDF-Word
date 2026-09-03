@@ -84,6 +84,8 @@ classification: CONFIDENTIAL
 | `markdownFormal.heading.pageBreakLevel` | `2` | Break the page before headings up to this level |
 | `markdownFormal.mermaid.enabled` | `true` | Draw ```` ```mermaid ```` code blocks as diagrams |
 | `markdownFormal.mermaid.theme` | `neutral` | Diagram colours (`default` / `neutral` / `forest` / `dark`) |
+| `markdownFormal.mermaid.maxWidth` | `100` | Maximum diagram width as a percentage of the text width |
+| `markdownFormal.mermaid.maxHeightMm` | `120` | Preferred maximum diagram height in mm; automatically reduced when it does not fit |
 | `markdownFormal.toc.depth` | `3` | Heading levels listed in the table of contents |
 | `markdownFormal.protection.mode` | `restrict` | Protection mode (`none` / `restrict` / `sign`) |
 | `markdownFormal.hash.emit` | `true` | Also write a `.sha256` file |

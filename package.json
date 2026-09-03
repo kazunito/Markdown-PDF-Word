@@ -2,7 +2,7 @@
   "name": "markdown-formal-pdf",
   "displayName": "Markdown Formal PDF / Word",
   "description": "%description%",
-  "version": "0.3.1",
+  "version": "0.3.4",
   "publisher": "kazunito",
   "license": "MIT",
   "repository": {
@@ -409,6 +409,14 @@
             "maximum": 100,
             "description": "%markdownFormal.mermaid.maxWidth.description%",
             "order": 12
+          },
+          "markdownFormal.mermaid.maxHeightMm": {
+            "type": "number",
+            "default": 120,
+            "minimum": 40,
+            "maximum": 300,
+            "description": "%markdownFormal.mermaid.maxHeightMm.description%",
+            "order": 13
           }
         }
       },

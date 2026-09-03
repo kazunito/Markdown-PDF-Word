@@ -101,6 +101,7 @@ export function loadConfig(resource?: vscode.Uri): ExportConfig {
       enabled: get('mermaid.enabled', true),
       theme: get<MermaidTheme>('mermaid.theme', 'neutral'),
       maxWidth: get('mermaid.maxWidth', 100),
+      maxHeightMm: get('mermaid.maxHeightMm', 120),
     },
 
     customCss: get('customCss', ''),

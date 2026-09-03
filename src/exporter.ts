@@ -117,12 +117,28 @@ async function embedMermaid(
  */
 function groupHeadingWithFigure(html: string, pageBreakLevel: number): string {
   const headingWithFigure =
-    /<h([1-6])([^>]*)>([\s\S]*?)<\/h\1>\s*(<figure class="mermaid-figure">[\s\S]*?<\/figure>)/g;
+    /<h([1-6])([^>]*)>((?:(?!<\/?h[1-6]\b)[\s\S])*?)<\/h\1>\s*(<figure class="mermaid-figure">[\s\S]*?<\/figure>)/g;
   return html.replace(headingWithFigure, (whole, level: string, attrs, text, figure) =>
     Number(level) <= pageBreakLevel
       ? whole
       : `<div class="figure-block"><h${level}${attrs}>${text}</h${level}>${figure}</div>`
   );
+}
+
+/**
+ * 章の導入と最初の小さな表を同じページに置く。
+ *
+ * Paged.js は h2 の直後に短い説明、h3、小さな表が続く場合でも、h3 以降を
+ * 次ページへまとめて送ることがある。最初の表が 6 行以下の場合だけ章頭を包み、
+ * 大きな表を break-inside: avoid にして図表ごと落とす危険を避ける。
+ */
+function groupChapterStartWithSmallTable(html: string): string {
+  const chapterStart =
+    /(<h2[^>]*>[\s\S]*?<\/h2>(?:(?!<h[23]\b)[\s\S])*?<h3[^>]*>[\s\S]*?<\/h3>\s*<table>[\s\S]*?<\/table>)/g;
+  return html.replace(chapterStart, (whole) => {
+    const rowCount = (whole.match(/<tr\b/g) || []).length;
+    return rowCount <= 6 ? `<div class="section-start">${whole}</div>` : whole;
+  });
 }
 
 /** ハッシュファイルを書き出す */
@@ -141,7 +157,9 @@ export async function exportPdf(
   const { input, bodyHtml, diagrams } = loadInput(sourcePath);
   const notes: string[] = [];
 
-  const body = await embedMermaid(bodyHtml, diagrams, cfg, notes);
+  const body = groupChapterStartWithSmallTable(
+    await embedMermaid(bodyHtml, diagrams, cfg, notes)
+  );
 
   let extraCss = '';
   if (cfg.customCss) {

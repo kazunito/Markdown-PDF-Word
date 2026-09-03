@@ -125,6 +125,7 @@ export interface ExportConfig {
     enabled: boolean;
     theme: MermaidTheme;
     maxWidth: number;
+    maxHeightMm: number;
   };
 
   customCss: string;
