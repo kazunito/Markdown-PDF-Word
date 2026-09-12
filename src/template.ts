@@ -162,6 +162,8 @@ body {
   font-family: ${cfg.font.body};
   font-size: ${cfg.font.size};
   line-height: ${cfg.font.lineHeight};
+  /* 表外の本文・箇条書き・引用にも継承し、長い URL / 識別子を枠内で折り返す。 */
+  overflow-wrap: anywhere;
   margin: 0;
 }
 /* 見出しの大きさ。ブラウザ既定 (h1 = 2em) は帯が太くなりすぎるため明示する */
@@ -190,8 +192,10 @@ tr, th, td { break-inside: avoid; }
 thead { display: table-header-group; }
 
 /* ===== ページ幅に収める ===== */
-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 9pt; }
-th, td { border: 1px solid #999; padding: 3px 5px; word-break: break-all; }
+/* 内容から列幅を決め、番号などの短い列が説明列の幅を奪わないようにする。
+   長い URL / 識別子は必要な場合だけ折り返し、表を本文幅に収める。 */
+table { width: 100%; table-layout: auto; border-collapse: collapse; font-size: 9pt; }
+th, td { border: 1px solid #999; padding: 3px 5px; word-break: normal; overflow-wrap: anywhere; }
 th { background: #f2f2f2; }
 img { max-width: 100%; height: auto; }
 /* Mermaid の図。mermaid が付ける固有の幅指定を打ち消し、本文の幅と高さに収める */

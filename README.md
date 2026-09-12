@@ -30,6 +30,10 @@ A VSCode extension that converts Markdown into formal PDF and Word (.docx) docum
 
 Word output is intended as an **editable draft**. The PDF is the authoritative copy.
 
+PDF table columns size automatically to their contents, leaving more room for descriptions
+beside short number columns. Long URLs and identifiers wrap when needed to fit the page,
+including in paragraphs, lists and block quotes outside tables.
+
 ## Requirements
 
 - VSCode 1.85 or later
