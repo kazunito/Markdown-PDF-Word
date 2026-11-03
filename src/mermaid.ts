@@ -80,8 +80,9 @@ export async function renderMermaid(
     });
 
     const page = await browser.newPage();
-    // Word 用の PNG は本文幅まで引き伸ばすため、3 倍の解像度で描いて粗さを防ぐ
-    await page.setViewport({ width: 1400, height: 900, deviceScaleFactor: 3 });
+    // Word 用の PNG は拡大して貼る場合があるため、3 倍の解像度で描いて粗さを防ぐ。
+    // 幅は横長の図が実寸のまま収まる大きさにする (はみ出すと切れて測られる)
+    await page.setViewport({ width: 2400, height: 900, deviceScaleFactor: 3 });
     await page.setContent(wrapperHtml(cfg.font.body), { waitUntil: 'load' });
     await page.addScriptTag({ path: mermaidBundlePath() });
 
@@ -119,9 +120,17 @@ export async function renderMermaid(
         continue;
       }
 
-      // 実寸を測る。Word の画像サイズと PDF の中央寄せに使う
+      // 実寸を測る。拡大率の上限 (paper.ts の MERMAID_MAX_SCALE) と Word の画像サイズに使う。
+      // mermaid の SVG は width="100%" で固有の幅を持たないため、そのままでは
+      // ブラウザ既定の 300px として測られる。style の max-width (実寸) を幅として与える
       await page.evaluate((svg: string) => {
-        (globalThis as any).document.getElementById('box').innerHTML = svg;
+        const box = (globalThis as any).document.getElementById('box');
+        box.innerHTML = svg;
+        const el = box.querySelector('svg');
+        const natural = el ? parseFloat(el.style.maxWidth) : NaN;
+        if (el && natural > 0) {
+          el.style.width = `${natural}px`;
+        }
       }, item.svg);
 
       const box = await page.$('#box');

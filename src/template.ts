@@ -197,11 +197,18 @@ thead { display: table-header-group; }
 table { width: 100%; table-layout: auto; border-collapse: collapse; font-size: 9pt; }
 th, td { border: 1px solid #999; padding: 3px 5px; word-break: normal; overflow-wrap: anywhere; }
 th { background: #f2f2f2; }
-img { max-width: 100%; height: auto; }
-/* Mermaid の図。mermaid が付ける固有の幅指定を打ち消し、本文の幅と高さに収める */
+/* 短いセルだけの列 (番号・章・地域など) は改行しない。exporter.ts が class を付ける */
+th.nowrap, td.nowrap { white-space: nowrap; overflow-wrap: normal; }
+/* 本文の画像。拡大はせず、本文の幅と図の高さの上限に収める。
+   1 ページに収まらない画像は Paged.js が丸ごと落とすため、高さも抑える */
+img { max-width: 100%; max-height: ${figureHeightLimitMm(cfg)}mm; width: auto; height: auto; }
+/* 画像だけの段落 (exporter.ts が class を付ける) は Mermaid の図と同じく中央に置く */
+p.image-only { margin: 3mm 0; text-align: center; }
+/* Mermaid の図。本文の幅と高さに収める。図ごとの幅の上限 (実寸 × 拡大率の上限) は
+   exporter.ts が SVG の style に max-width として書き込み、こちらより優先される */
 .mermaid-figure { margin: 3mm 0; text-align: center; }
 .mermaid-figure svg {
-  max-width: ${cfg.mermaid.maxWidth}% !important;
+  max-width: ${cfg.mermaid.maxWidth}%;
   max-height: ${figureHeightLimitMm(cfg)}mm;
   width: auto !important;
   height: auto;

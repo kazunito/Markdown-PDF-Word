@@ -14,12 +14,13 @@ A VSCode extension that converts Markdown into formal PDF and Word (.docx) docum
 | Cover page generated from front matter | Yes | Yes |
 | Document control number on the cover | Yes | Yes |
 | Red confidentiality stamp | Yes (rotated) | Yes (rotated; the same image as the PDF) |
-| Table of contents with real page numbers | Yes | Yes (Word updates the field) |
+| Table of contents with real page numbers | Yes | Yes (headings are written; press `Ctrl + A` then `F9` in Word for page numbers) |
 | No page numbers on cover/TOC; body starts at 1 | Yes | Yes |
 | Page break before each chapter | Yes | Yes |
 | Page border, configurable per page kind | Yes | Yes |
 | Font and heading style presets | Yes | Yes |
 | Mermaid code blocks drawn as diagrams | Yes (vector) | Yes (image) |
+| Local images (`![alt](images/x.png)`, e.g. draw.io PNG exports) embedded, resolved from the document's folder | Yes (PNG/JPEG/GIF/SVG) | Yes (PNG/JPEG/GIF) |
 | Wide tables and long lines fitted to the page | Yes | Yes |
 | Long tables, code blocks and quotes split at page boundaries (no half-empty page) | Yes | Yes |
 | Header row repeated on continued pages | — | Yes |
@@ -31,7 +32,8 @@ A VSCode extension that converts Markdown into formal PDF and Word (.docx) docum
 Word output is intended as an **editable draft**. The PDF is the authoritative copy.
 
 PDF table columns size automatically to their contents, leaving more room for descriptions
-beside short number columns. Long URLs and identifiers wrap when needed to fit the page,
+beside short number columns. Columns whose cells are all 8 characters or fewer (numbers, chapters,
+regions) never wrap, in both PDF and Word. Long URLs and identifiers wrap when needed to fit the page,
 including in paragraphs, lists and block quotes outside tables.
 
 ## Requirements
@@ -46,6 +48,9 @@ including in paragraphs, lists and block quotes outside tables.
 Works on Windows, macOS and Linux. Everything is pure JavaScript, so a single VSIX covers all three.
 
 ## Usage
+
+The [user guide](docs/user-guide.md) explains page breaks, tables, diagrams, images, the table of contents,
+protection and tamper checks step by step, with the differences between PDF and Word.
 
 1. Open a Markdown file
 2. Run one of the commands from the command palette:
@@ -75,6 +80,16 @@ classification: CONFIDENTIAL
 | `title` / `subtitle` | Centre |
 | `author` / `date` | Below the centre |
 
+The table of contents is generated from the headings. To keep a hand-written table of contents for reading the Markdown itself (GitHub, VS Code preview), wrap it in `<!-- toc -->` and `<!-- /toc -->` (`<!-- tocstop -->` also works). The wrapped part is left out of the PDF and Word output, so the contents do not appear twice. Markers inside code blocks are ignored, and nothing is removed if the closing marker is missing:
+
+```markdown
+<!-- toc -->
+## Contents
+1. [Introduction](#1-introduction)
+2. [Procedure](#2-procedure)
+<!-- /toc -->
+```
+
 ## Main settings
 
 | Setting | Default | Description |
@@ -88,7 +103,7 @@ classification: CONFIDENTIAL
 | `markdownFormal.heading.pageBreakLevel` | `2` | Break the page before headings up to this level |
 | `markdownFormal.mermaid.enabled` | `true` | Draw ```` ```mermaid ```` code blocks as diagrams |
 | `markdownFormal.mermaid.theme` | `neutral` | Diagram colours (`default` / `neutral` / `forest` / `dark`) |
-| `markdownFormal.mermaid.maxWidth` | `100` | Maximum diagram width as a percentage of the text width |
+| `markdownFormal.mermaid.maxWidth` | `100` | Maximum diagram width as a percentage of the text width. Diagrams with few shapes stop growing once their text would exceed the table text size |
 | `markdownFormal.mermaid.maxHeightMm` | `120` | Preferred maximum diagram height in mm; automatically reduced when it does not fit |
 | `markdownFormal.toc.depth` | `3` | Heading levels listed in the table of contents |
 | `markdownFormal.protection.mode` | `restrict` | Protection mode (`none` / `restrict` / `sign`) |
@@ -131,6 +146,8 @@ and verify it on receipt. That check does not depend on any viewer.
 ```bash
 shasum -a 256 -c document.pdf.sha256
 ```
+
+See the [user guide](docs/user-guide.md#5-tamper-detection-most-important) for details.
 
 ## Secrets
 

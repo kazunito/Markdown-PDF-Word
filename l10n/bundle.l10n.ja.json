@@ -40,5 +40,7 @@
   "SHA-256: {0}": "SHA-256: {0}",
   "If this matches the value in the register, the file has not been tampered with.": "※ 台帳の値と一致すれば改ざんされていません。",
   "Check the validity of the signature with Acrobat Reader or pdfsig.": "※ 署名の有効性は Acrobat Reader か pdfsig で確認してください。",
-  "A Mermaid diagram could not be drawn and was kept as code: {0}": "Mermaid の図を描けなかったため、コードブロックのまま出力しました: {0}"
+  "A Mermaid diagram could not be drawn and was kept as code: {0}": "Mermaid の図を描けなかったため、コードブロックのまま出力しました: {0}",
+  "An image could not be embedded: {0}": "画像を埋め込めませんでした: {0}",
+  "An image could not be embedded and its description was kept as text: {0}": "画像を貼れなかったため、説明文を文字で出力しました: {0}"
 }

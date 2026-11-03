@@ -2,9 +2,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { renderDocx } from './docx';
 import { t } from './i18n';
+import { isRemoteImage, loadLocalImage } from './image';
 import { sha256Line } from './hash';
 import { MERMAID_PLACEHOLDER, parseMarkdown, renderBody } from './markdown';
 import { renderMermaid } from './mermaid';
+import { MERMAID_MAX_SCALE } from './paper';
+import { shortColumns } from './table';
 import { restrictPdf, signPdf } from './protect';
 import { renderPdf } from './render';
 import { buildHtml } from './template';
@@ -97,13 +100,25 @@ async function embedMermaid(
       failed.add(image?.error || 'unknown error');
       return asCode(index);
     }
-    return `<figure class="mermaid-figure">${image.svg}</figure>`;
+    return `<figure class="mermaid-figure">${capMermaidWidth(image.svg, cfg.mermaid.maxWidth)}</figure>`;
   });
 
   for (const reason of failed) {
     notes.push(t('A Mermaid diagram could not be drawn and was kept as code: {0}', reason));
   }
   return groupHeadingWithFigure(html, cfg.heading.pageBreakLevel);
+}
+
+/**
+ * 図の幅の上限を「本文幅 × mermaid.maxWidth」と「実寸 × 拡大率の上限」の小さい方にする。
+ * mermaid は SVG の style に実寸を max-width として書くので、その値を置き換える。
+ * 要素の少ない図だけが本文幅まで引き伸ばされ、文字が他の図より大きくなるのを防ぐ。
+ */
+function capMermaidWidth(svg: string, maxWidthPercent: number): string {
+  return svg.replace(/^(<svg\b[^>]*?style="[^"]*?)max-width:\s*([\d.]+)px/, (_m, head: string, px: string) => {
+    const cap = Math.round(Number(px) * MERMAID_MAX_SCALE * 100) / 100;
+    return `${head}max-width: min(${maxWidthPercent}%, ${cap}px)`;
+  });
 }
 
 /**
@@ -141,6 +156,66 @@ function groupChapterStartWithSmallTable(html: string): string {
   });
 }
 
+/**
+ * 本文の画像 (<img src="図解/x.png">) を data: URI にして埋め込む。
+ *
+ * PDF は HTML を一時フォルダに書いてから開く (render.ts) ため、相対パスのままでは
+ * 元の Markdown の場所で解決されず画像が出ない。元の場所を基準に読み込んで本文に入れる。
+ * Web 上の画像と埋め込み済みの画像はそのまま残す。読めない画像は理由を notes に残す。
+ */
+function embedLocalImages(html: string, baseDir: string, notes: string[]): string {
+  const failed = new Set<string>();
+  const result = html.replace(
+    /(<img\b[^>]*?\ssrc=)(["'])(.*?)\2/gi,
+    (whole, head: string, quote: string, rawSrc: string) => {
+      const src = rawSrc.replace(/&amp;/g, '&');
+      if (isRemoteImage(src)) {
+        return whole;
+      }
+      const { image, error } = loadLocalImage(src, baseDir);
+      if (!image) {
+        failed.add(error || src);
+        return whole;
+      }
+      return `${head}${quote}data:${image.mime};base64,${image.data.toString('base64')}${quote}`;
+    }
+  );
+  for (const reason of failed) {
+    notes.push(t('An image could not be embedded: {0}', reason));
+  }
+  // 画像だけの段落に目印を付ける。文中の画像は文と並べたままにする
+  return result.replace(/<p>(\s*<img\b[^>]*>\s*)<\/p>/g, '<p class="image-only">$1</p>');
+}
+
+/**
+ * 改行しない短い列 (table.ts) のセルに class="nowrap" を付ける (CSS は template.ts)。
+ * markdown-it の表は <th> / <td> の中に属性 (style="text-align: …") しか付けないため、
+ * 文字列の置き換えで足りる。
+ */
+function markShortColumns(html: string): string {
+  const cellPattern = /<(t[hd])\b([^>]*)>([\s\S]*?)<\/\1>/g;
+  const plain = (cell: string): string =>
+    cell
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&[a-z]+;|&#\d+;/gi, 'x');
+  return html.replace(/<table>[\s\S]*?<\/table>/g, (table) => {
+    const rows = (table.match(/<tr>[\s\S]*?<\/tr>/g) || []).map((row) =>
+      Array.from(row.matchAll(cellPattern), (m) => plain(m[3]))
+    );
+    const short = shortColumns(rows);
+    if (!short.some(Boolean)) {
+      return table;
+    }
+    return table.replace(/<tr>[\s\S]*?<\/tr>/g, (row) => {
+      let column = 0;
+      return row.replace(cellPattern, (cell, tag: string, attrs: string, inner: string) =>
+        short[column++] ? `<${tag} class="nowrap"${attrs}>${inner}</${tag}>` : cell
+      );
+    });
+  });
+}
+
 /** ハッシュファイルを書き出す */
 function emitHash(buffer: Buffer, outputPath: string): string {
   const hashPath = `${outputPath}.sha256`;
@@ -157,9 +232,12 @@ export async function exportPdf(
   const { input, bodyHtml, diagrams } = loadInput(sourcePath);
   const notes: string[] = [];
 
-  const body = groupChapterStartWithSmallTable(
-    await embedMermaid(bodyHtml, diagrams, cfg, notes)
+  const withFigures = embedLocalImages(
+    await embedMermaid(bodyHtml, diagrams, cfg, notes),
+    path.dirname(sourcePath),
+    notes
   );
+  const body = groupChapterStartWithSmallTable(markShortColumns(withFigures));
 
   let extraCss = '';
   if (cfg.customCss) {

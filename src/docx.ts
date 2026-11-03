@@ -1,13 +1,18 @@
 import {
   AlignmentType,
+  Bookmark,
+  BookmarkEnd,
+  BookmarkStart,
   BorderStyle,
   Document,
   ExternalHyperlink,
   Footer,
   HeadingLevel,
   ImageRun,
+  IParagraphStylePropertiesOptions,
   ISectionOptions,
   LevelFormat,
+  LineRuleType,
   PageNumber,
   Packer,
   Paragraph,
@@ -21,12 +26,15 @@ import {
   WidthType,
 } from 'docx';
 import MarkdownIt from 'markdown-it';
+import * as path from 'path';
 // トークン変数 t と紛れないよう別名で受ける
 import { t as translate } from './i18n';
 import Token from 'markdown-it/lib/token.mjs';
+import { isRemoteImage, loadLocalImage } from './image';
 import { MermaidImage, renderMermaid } from './mermaid';
-import { groupedFigureHeightLimitMm, paperTwip, paperTwipUpright } from './paper';
+import { groupedFigureHeightLimitMm, MERMAID_MAX_SCALE, paperTwip, paperTwipUpright } from './paper';
 import { renderStamp, StampImage } from './stamp';
+import { shortColumns, textWidthEm } from './table';
 import { ExportConfig, ExportInput } from './types';
 
 /**
@@ -34,48 +42,6 @@ import { ExportConfig, ExportInput } from './types';
  * PDF とは別の描画経路で、CSS は使えないため docx の指定に読み替える。
  * 位置づけは編集用ドラフト。正本は PDF。
  */
-
-/**
- * 生成した docx を後処理する。
- *
- * 目的: Word を開くたびに出る
- * 「この文書には他のファイルを参照するフィールドが含まれています…」の確認を出さずに、
- * 目次だけを初回に確定させる。
- *
- * 方法: 文書全体の <w:updateFields/> を外し、代わりに目次フィールドに
- * w:dirty="true" を付ける。フィールド単位の更新指示なので確認ダイアログが出ない。
- */
-async function postProcessDocx(buffer: Buffer): Promise<Buffer> {
-  const JSZip = require('jszip');
-  const zip = await JSZip.loadAsync(buffer);
-
-  const settingsFile = zip.file('word/settings.xml');
-  if (settingsFile) {
-    const settings = await settingsFile.async('string');
-    zip.file('word/settings.xml', settings.replace(/<w:updateFields[^>]*\/>/g, ''));
-  }
-
-  const documentFile = zip.file('word/document.xml');
-  if (documentFile) {
-    const document = await documentFile.async('string');
-    // 目次フィールドの開始位置だけを dirty にする
-    const tocIndex = document.indexOf('TOC \\');
-    if (tocIndex >= 0) {
-      const beginIndex = document.lastIndexOf('<w:fldChar w:fldCharType="begin"', tocIndex);
-      if (beginIndex >= 0) {
-        const endOfTag = document.indexOf('/>', beginIndex);
-        const alreadyDirty = document.slice(beginIndex, endOfTag).includes('w:dirty');
-        if (endOfTag > beginIndex && !alreadyDirty) {
-          const patched =
-            document.slice(0, endOfTag) + ' w:dirty="true"' + document.slice(endOfTag);
-          zip.file('word/document.xml', patched);
-        }
-      }
-    }
-  }
-
-  return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
-}
 
 /** CSS のフォント指定リストから先頭のフォント名だけ取り出す */
 function firstFont(cssFontList: string): string {
@@ -88,6 +54,26 @@ function toHalfPoints(size: string): number {
   const m = size.match(/([\d.]+)\s*pt/);
   const pt = m ? parseFloat(m[1]) : 10.5;
   return Math.round(pt * 2);
+}
+
+/**
+ * 行の高さを固定値 (twip) で指定する。PDF (CSS) の line-height は「文字の大きさ × 倍率」だが、
+ * Word の倍数指定は「書体の標準の行の高さ × 倍率」で、日本語書体では PDF より広くなる。
+ * 固定値にして PDF と同じ高さに揃える。
+ */
+function exactLine(pt: number, ratio: number): { line: number; lineRule: typeof LineRuleType.EXACT } {
+  return { line: Math.round(pt * ratio * 20), lineRule: LineRuleType.EXACT };
+}
+
+/** 画像を含む段落の行の高さ。固定値だと画像が行の高さで切れるため、自動にする */
+const AUTO_LINE = { line: 240, lineRule: LineRuleType.AUTO };
+
+/** 表・コードブロックの文字の大きさ (pt)。PDF の table / pre { font-size: 9pt } と同じ */
+const SMALL_TEXT_PT = 9;
+
+/** 段落が画像を含むか */
+function hasImage(token: Token | undefined): boolean {
+  return (token?.children || []).some((c) => c.type === 'image');
 }
 
 /** "#4472C4" を docx の "4472C4" に変換する */
@@ -123,7 +109,59 @@ function toTwip(value: string): number {
 }
 
 /** 行内トークン (太字・斜体・コード・リンク) を docx の子要素に変換する */
-function inlineToRuns(token: Token | undefined, cfg: ExportConfig): ParagraphChild[] {
+/** 本文の画像を読むための情報。baseDir は元の Markdown のフォルダ */
+interface ImageContext {
+  baseDir: string;
+  /** 貼れなかった画像の理由 (重複は 1 回だけ通知する) */
+  failed: Set<string>;
+}
+
+/**
+ * 本文の画像を ImageRun にする。PDF 側の img { max-width: 100% } と同じく、
+ * 元の大きさより拡大せず、本文の幅と図の高さの上限に収める。
+ * 貼れないときは undefined を返し、呼び出し側が説明文 (alt) を文字で出す。
+ */
+function imageToRun(src: string, cfg: ExportConfig, images: ImageContext): ImageRun | undefined {
+  if (isRemoteImage(src)) {
+    images.failed.add(`${src.slice(0, 60)} (remote images are not embedded)`);
+    return undefined;
+  }
+  const { image, error } = loadLocalImage(src, images.baseDir);
+  if (!image) {
+    images.failed.add(error || src);
+    return undefined;
+  }
+  if (image.type === 'svg' || image.width === 0 || image.height === 0) {
+    images.failed.add(`${src} (only PNG / JPEG / GIF are supported in Word)`);
+    return undefined;
+  }
+  const box = bodyBoxPx(cfg);
+  let width = Math.min(image.width, box.width);
+  let height = Math.round((image.height / image.width) * width);
+  if (height > box.height) {
+    width = Math.round((image.width / image.height) * box.height);
+    height = box.height;
+  }
+  return new ImageRun({
+    type: image.type,
+    data: image.data,
+    transformation: { width, height },
+  });
+}
+
+/** 段落が画像だけでできているか (中央に寄せるかの判定に使う) */
+function isImageOnly(token: Token | undefined): boolean {
+  const children = (token?.children || []).filter(
+    (c) => !(c.type === 'softbreak' || (c.type === 'text' && c.content.trim() === ''))
+  );
+  return children.length > 0 && children.every((c) => c.type === 'image');
+}
+
+function inlineToRuns(
+  token: Token | undefined,
+  cfg: ExportConfig,
+  images?: ImageContext
+): ParagraphChild[] {
   if (!token || !token.children) {
     return token ? [new TextRun(token.content || '')] : [];
   }
@@ -189,6 +227,15 @@ function inlineToRuns(token: Token | undefined, cfg: ExportConfig): ParagraphChi
       case 'hardbreak':
         push(new TextRun({ text: '', break: 1 }));
         break;
+      case 'image': {
+        const run = images ? imageToRun(child.attrGet('src') || '', cfg, images) : undefined;
+        if (run) {
+          runs.push(run);
+        } else if (child.content) {
+          push(new TextRun({ text: child.content, bold, italics: italic }));
+        }
+        break;
+      }
       default:
         if (child.content) {
           push(new TextRun({ text: child.content, bold, italics: italic }));
@@ -212,11 +259,34 @@ const HEADING_LEVELS = [
 ];
 
 /** 表のトークン列から docx の Table を組み立てる */
-function buildTable(tokens: Token[], start: number, cfg: ExportConfig): { table: Table; next: number } {
+function buildTable(
+  tokens: Token[],
+  start: number,
+  cfg: ExportConfig,
+  images?: ImageContext
+): { table: Table; next: number } {
   const rows: TableRow[] = [];
   let cells: TableCell[] = [];
   let isHeader = false;
   let i = start + 1;
+
+  // 改行しない短い列 (table.ts) を先に調べ、その列のセルに中身が収まる幅を指定する。
+  // 表は自動調整のままなので、幅は「希望する幅」として扱われ、長い列が残りを使う
+  const texts: string[][] = [];
+  for (let j = start + 1; j < tokens.length && tokens[j].type !== 'table_close'; j++) {
+    if (tokens[j].type === 'tr_open') {
+      texts.push([]);
+    } else if (tokens[j].type === 'th_open' || tokens[j].type === 'td_open') {
+      texts[texts.length - 1]?.push(inlineText(tokens[j + 1]));
+    }
+  }
+  const short = shortColumns(texts);
+  const columnTwip = short.map((isShort, c) =>
+    isShort
+      ? // 9pt の文字幅 + セルの左右の余白 (既定 108twip × 2) + 少しの余裕
+        Math.ceil(Math.max(...texts.map((r) => textWidthEm(r[c] ?? ''))) * SMALL_TEXT_PT * 20) + 216 + 60
+      : 0
+  );
 
   while (i < tokens.length && tokens[i].type !== 'table_close') {
     const t = tokens[i];
@@ -231,19 +301,25 @@ function buildTable(tokens: Token[], start: number, cfg: ExportConfig): { table:
         cells = [];
         break;
       case 'tr_close':
-        rows.push(new TableRow({ children: cells, tableHeader: isHeader }));
+        // PDF 側の tr { break-inside: avoid } と同じ意図。行の途中で改ページせず、
+        // 入りきらない行は行ごと次ページへ送る (表全体は送らない)
+        rows.push(new TableRow({ children: cells, tableHeader: isHeader, cantSplit: true }));
         break;
       case 'th_open':
       case 'td_open': {
         const inline = tokens[i + 1];
+        const width = columnTwip[cells.length];
         cells.push(
           new TableCell({
+            width: width ? { size: width, type: WidthType.DXA } : undefined,
             children: [
               new Paragraph({
-                children: inlineToRuns(inline, cfg).map((r) =>
+                // 文字の大きさと行の高さは表用の段落スタイル (MfTableText) で PDF に揃える
+                style: 'MfTableText',
+                children: inlineToRuns(inline, cfg, images).map((r) =>
                   r instanceof TextRun && isHeader ? r : r
                 ),
-                spacing: { before: 20, after: 20 },
+                spacing: { before: 20, after: 20, ...(hasImage(inline) ? AUTO_LINE : {}) },
               }),
             ],
             shading: isHeader
@@ -281,16 +357,59 @@ function bodyBoxPx(cfg: ExportConfig): { width: number; height: number } {
  * markdown-it のトークン列を docx の段落・表に変換する。
  * mermaid には renderMermaid の結果を出現順に入れる (空なら図にしない)。
  */
+/** 目次に最初から入れておく項目 (docx の TableOfContents の cachedEntries) */
+interface TocEntry {
+  title: string;
+  level: number;
+  href: string;
+}
+
+/** 見出しの表示文字列。強調などの記号を除いた文字だけを返す */
+function inlineText(token: Token | undefined): string {
+  if (!token) {
+    return '';
+  }
+  if (!token.children) {
+    return token.content;
+  }
+  return token.children
+    .map((c) => (c.type === 'text' || c.type === 'code_inline' ? c.content : ''))
+    .join('');
+}
+
 function tokensToDocx(
   tokens: Token[],
   cfg: ExportConfig,
-  mermaid: MermaidImage[] = []
+  mermaid: MermaidImage[] = [],
+  images?: ImageContext,
+  tocEntries: TocEntry[] = []
 ): (Paragraph | Table)[] {
   const out: (Paragraph | Table)[] = [];
   let listDepth = -1;
   let ordered = false;
   let quote = false;
   let mermaidIndex = 0;
+  const bodyPt = toHalfPoints(cfg.font.size) / 2;
+
+  // 目次に載せる見出しにブックマークを付け、目次の項目からその見出しへ移れるようにする
+  const tocBookmark = (
+    level: number,
+    inline: Token | undefined,
+    runs: ParagraphChild[]
+  ): ParagraphChild[] => {
+    if (!cfg.toc.enabled || level > cfg.toc.depth) {
+      return runs;
+    }
+    const number = tocEntries.length + 1;
+    const href = `_MF_TOC_${number}`;
+    tocEntries.push({ title: inlineText(inline), level, href });
+    // docx の Bookmark は文書全体で番号を数えず、すべての印に同じ番号 (1) を付ける。
+    // 番号の重複は Word の形式に反するため、印ごとに別の番号で作り直す
+    const bookmark = new Bookmark({ id: href, children: runs }) as any;
+    bookmark.start = new BookmarkStart(href, number);
+    bookmark.end = new BookmarkEnd(number);
+    return [bookmark as Bookmark];
+  };
 
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i];
@@ -309,7 +428,7 @@ function tokensToDocx(
             // 見出しだけがページ末尾に取り残されないよう、次の段落と離さない
             keepNext: true,
             keepLines: true,
-            children: inlineToRuns(inline, cfg),
+            children: tocBookmark(level, inline, inlineToRuns(inline, cfg, images)),
           })
         );
         i += 2;
@@ -318,10 +437,12 @@ function tokensToDocx(
 
       case 'paragraph_open': {
         const inline = tokens[i + 1];
+        const line = hasImage(inline) ? AUTO_LINE : exactLine(bodyPt, cfg.font.lineHeight);
         if (listDepth >= 0) {
           out.push(
             new Paragraph({
-              children: inlineToRuns(inline, cfg),
+              children: inlineToRuns(inline, cfg, images),
+              spacing: line,
               ...(ordered
                 ? { numbering: { reference: 'mf-ordered', level: listDepth } }
                 : { bullet: { level: listDepth } }),
@@ -330,7 +451,10 @@ function tokensToDocx(
         } else {
           out.push(
             new Paragraph({
-              children: inlineToRuns(inline, cfg),
+              children: inlineToRuns(inline, cfg, images),
+              spacing: line,
+              // 画像だけの段落は PDF の図と同じく中央に置く
+              alignment: !quote && isImageOnly(inline) ? AlignmentType.CENTER : undefined,
               indent: quote ? { left: 400 } : undefined,
               border: quote
                 ? { left: { style: BorderStyle.SINGLE, size: 12, color: 'CCCCCC', space: 8 } }
@@ -347,11 +471,13 @@ function tokensToDocx(
         if (isMermaidFence(t)) {
           const image = mermaid[mermaidIndex++];
           if (image && image.png && image.width > 0) {
-            // PDF 側は SVG が本文幅いっぱいに広がる。Word でも同じ大きさに見えるよう、
-            // 縦横比を保ったまま本文幅 (× mermaid.maxWidth) に合わせる。
+            // PDF と同じ大きさに見えるよう、縦横比を保ったまま本文幅 (× mermaid.maxWidth) と
+            // 実寸 × 拡大率の上限の小さい方に合わせる。
             // 縦長の図はページからあふれるので、本文の高さでも抑える
             const box = bodyBoxPx(cfg);
-            let width = Math.round((box.width * cfg.mermaid.maxWidth) / 100);
+            let width = Math.round(
+              Math.min((box.width * cfg.mermaid.maxWidth) / 100, image.width * MERMAID_MAX_SCALE)
+            );
             let height = Math.round((image.height / image.width) * width);
             if (height > box.height) {
               width = Math.round((image.width / image.height) * box.height);
@@ -360,7 +486,7 @@ function tokensToDocx(
             out.push(
               new Paragraph({
                 alignment: AlignmentType.CENTER,
-                spacing: { before: 120, after: 120 },
+                spacing: { before: 120, after: 120, ...AUTO_LINE },
                 children: [
                   new ImageRun({
                     type: 'png',
@@ -385,7 +511,7 @@ function tokensToDocx(
                   : [new TextRun({ text: line, font: firstFont(cfg.font.mono), size: 18, break: 1 })]
               ),
             shading: { type: ShadingType.CLEAR, color: 'auto', fill: 'F7F7F7' },
-            spacing: { before: 120, after: 120 },
+            spacing: { before: 120, after: 120, ...exactLine(SMALL_TEXT_PT, cfg.font.lineHeight) },
           })
         );
         break;
@@ -412,9 +538,18 @@ function tokensToDocx(
         break;
 
       case 'table_open': {
-        const { table, next } = buildTable(tokens, i, cfg);
+        const { table, next } = buildTable(tokens, i, cfg, images);
         out.push(table);
-        out.push(new Paragraph({ text: '', spacing: { after: 120 } }));
+        // 表の後ろの空の段落は、表と表が続くときに 1 つにつながらないためのもの。
+        // 直後が章頭で改ページする見出し (または文書の終わり) のときは入れない。
+        // 表がページの下端で終わると、この段落だけが次ページへはみ出して白紙ページになるため
+        const after = tokens[next + 1];
+        const pageBreakNext =
+          !after ||
+          (after.type === 'heading_open' && Number(after.tag.slice(1)) <= cfg.heading.pageBreakLevel);
+        if (!pageBreakNext) {
+          out.push(new Paragraph({ text: '', spacing: { after: 120 } }));
+        }
         i = next;
         break;
       }
@@ -582,7 +717,12 @@ export async function renderDocx(
     notes.push(translate('A Mermaid diagram could not be drawn and was kept as code: {0}', reason));
   }
 
-  const bodyChildren = tokensToDocx(tokens, cfg, mermaid);
+  const images: ImageContext = { baseDir: path.dirname(input.sourcePath), failed: new Set() };
+  const tocEntries: TocEntry[] = [];
+  const bodyChildren = tokensToDocx(tokens, cfg, mermaid, images, tocEntries);
+  for (const reason of images.failed) {
+    notes.push(translate('An image could not be embedded and its description was kept as text: {0}', reason));
+  }
 
   const bodyFont = firstFont(cfg.font.body);
   const headingFont = firstFont(cfg.font.heading);
@@ -638,9 +778,15 @@ export async function renderDocx(
           spacing: { after: 300 },
           children: [new TextRun({ text: cfg.toc.title, bold: true, size: 36, font: headingFont })],
         }),
+        // 目次の項目 (見出しとリンク) は最初から入れておき、ページ番号だけを Word の更新に任せる。
+        // 「開いたら更新する」印 (w:dirty / updateFields) は付けない。開いたときに Word が自動で
+        // 更新しても文書の変更とは扱われず、保存しても印が残って毎回確認が出るため。
+        // ページ番号は利用者が Ctrl + A → F9 で入れる。この更新は変更として扱われ、保存される
         new TableOfContents(cfg.toc.title, {
           hyperlink: true,
           headingStyleRange: `1-${cfg.toc.depth}`,
+          beginDirty: false,
+          cachedEntries: tocEntries,
         }),
       ],
     } as ISectionOptions);
@@ -661,9 +807,6 @@ export async function renderDocx(
   } as ISectionOptions);
 
   const doc = new Document({
-    // ここで true にしておき、後処理でフィールド単位の dirty に置き換える。
-    // 文書全体の updateFields のままだと Word が開くたびに確認ダイアログを出す。
-    features: { updateFields: true },
     numbering: {
       config: [
         {
@@ -682,15 +825,38 @@ export async function renderDocx(
       default: {
         document: {
           run: { font: { ascii: bodyFont, eastAsia: bodyFont }, size: toHalfPoints(cfg.font.size) },
-          paragraph: { spacing: { line: Math.round(cfg.font.lineHeight * 240) } },
+          // PDF の pre, blockquote { orphans: 2; widows: 2 } と同じ意図。
+          // 段落がページの境目で分かれるとき、1 行だけ取り残さない (指定しないと Word は制御しない)。
+          // docx は widowControl を出力するが、スタイル側の型に宣言が無いため型を広げて渡す
+          paragraph: {
+            spacing: { line: Math.round(cfg.font.lineHeight * 240) },
+            widowControl: true,
+          } as IParagraphStylePropertiesOptions,
         },
       },
-      paragraphStyles: buildHeadingStyles(cfg, headingFont, accent, headingColor),
+      paragraphStyles: [
+        // 見出しは PDF の h1〜h6 { line-height: 1.35 } に合わせた固定値にする
+        ...buildHeadingStyles(cfg, headingFont, accent, headingColor).map((style) => ({
+          ...style,
+          paragraph: {
+            ...style.paragraph,
+            spacing: { ...style.paragraph?.spacing, ...exactLine(style.run.size / 2, 1.35) },
+          },
+        })),
+        {
+          id: 'MfTableText',
+          name: 'Table Text',
+          basedOn: 'Normal',
+          quickFormat: true,
+          run: { size: SMALL_TEXT_PT * 2 },
+          paragraph: { spacing: exactLine(SMALL_TEXT_PT, cfg.font.lineHeight) },
+        },
+      ],
     },
     sections,
   });
 
-  return postProcessDocx(await Packer.toBuffer(doc));
+  return Packer.toBuffer(doc);
 }
 
 /** 見出しの装飾プリセットを docx のスタイルに読み替える */

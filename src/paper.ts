@@ -79,6 +79,14 @@ function availableFigureHeightMm(cfg: ExportConfig): number {
   return paperMm(cfg).height - margin - frame - 12;
 }
 
+/**
+ * Mermaid の図を実寸から拡大・縮小するときの倍率の上限。
+ * 図は本文の幅いっぱいまで広げるが、要素の少ない図ほど大きく引き伸ばされ、
+ * 図ごとに文字の大きさがばらつく。mermaid の文字 (16px) が表の文字 (9pt = 12px) を
+ * 超えない 0.75 倍で止める。PDF (exporter.ts) と Word (docx.ts) で同じ値を使う。
+ */
+export const MERMAID_MAX_SCALE = 0.75;
+
 export function figureHeightLimitMm(cfg: ExportConfig): number {
   return Math.max(40, Math.min(cfg.mermaid.maxHeightMm, availableFigureHeightMm(cfg)));
 }
