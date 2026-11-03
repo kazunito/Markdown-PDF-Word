@@ -125,9 +125,49 @@ function createRenderer(headings: Heading[], diagrams: string[]): MarkdownIt {
   return md;
 }
 
+const TOC_START = /^\s*<!--\s*toc\s*-->\s*$/i;
+const TOC_END = /^\s*<!--\s*(\/toc|tocstop)\s*-->\s*$/i;
+const FENCE = /^\s*(`{3,}|~{3,})/;
+
+/**
+ * Markdown で読むための手書き目次を取り除く。
+ * `<!-- toc -->` から `<!-- /toc -->` (または `<!-- tocstop -->`) までの行を消す。
+ * PDF・Word は見出しから目次を生成するため、残すと目次が二重になる。
+ * コードブロック内の目印は書き方の例とみなして無視し、閉じ忘れの場合は何も消さない。
+ */
+export function stripManualToc(body: string): string {
+  const lines = body.split('\n');
+  const out: string[] = [];
+  let fence: string | null = null;
+  let tocStart = -1;
+
+  for (const line of lines) {
+    const f = line.match(FENCE);
+    if (f) {
+      if (fence === null) {
+        fence = f[1];
+      } else if (f[1][0] === fence[0] && f[1].length >= fence.length) {
+        fence = null;
+      }
+    } else if (fence === null) {
+      if (tocStart < 0 && TOC_START.test(line)) {
+        tocStart = out.length;
+      } else if (tocStart >= 0 && TOC_END.test(line)) {
+        out.length = tocStart;
+        tocStart = -1;
+        continue;
+      }
+    }
+    out.push(line);
+  }
+  return out.join('\n');
+}
+
 /** Markdown 全体を解析して変換の入力を作る */
 export function parseMarkdown(sourcePath: string, raw: string): ExportInput {
-  const { meta, body } = splitFrontMatter(raw);
+  const split = splitFrontMatter(raw);
+  const meta = split.meta;
+  const body = stripManualToc(split.body);
   const headings: Heading[] = [];
   const md = createRenderer(headings, []);
   // 見出しの収集のために一度描画する。HTML 自体は renderBody で使い回す
