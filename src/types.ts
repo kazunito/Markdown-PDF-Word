@@ -38,6 +38,8 @@ export type PrintingPermission = 'none' | 'lowResolution' | 'highResolution';
 /** 拡張の設定をまとめたもの。VSCode の設定から組み立てる */
 export interface ExportConfig {
   outputDirectory: string;
+  inputFormat: 'auto' | 'markdown' | 'okf';
+  includeOkfDetails: boolean;
 
   page: {
     format: string;

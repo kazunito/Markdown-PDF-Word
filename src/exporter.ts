@@ -5,6 +5,7 @@ import { t } from './i18n';
 import { isRemoteImage, loadLocalImage } from './image';
 import { sha256Line } from './hash';
 import { MERMAID_PLACEHOLDER, parseMarkdown, renderBody } from './markdown';
+import { okfAppendix } from './okf';
 import { renderMermaid } from './mermaid';
 import { MERMAID_MAX_SCALE } from './paper';
 import { shortColumns } from './table';
@@ -44,16 +45,19 @@ function resolveOutputPath(sourcePath: string, cfg: ExportConfig, ext: string): 
 }
 
 /** Markdown ファイルを読んで解析する。diagrams には Mermaid のコードが出現順に入る */
-export function loadInput(sourcePath: string): {
+export function loadInput(sourcePath: string, cfg?: ExportConfig): {
   input: ExportInput;
   bodyHtml: string;
   diagrams: string[];
+  notes: string[];
 } {
   const raw = fs.readFileSync(sourcePath, 'utf8');
-  const input = parseMarkdown(sourcePath, raw);
+  const notes: string[] = [];
+  const appendix = cfg && okfAppendix(sourcePath, raw, cfg, notes);
+  const input = parseMarkdown(sourcePath, raw, appendix);
   const { html, headings, diagrams } = renderBody(input.markdown);
   input.headings = headings;
-  return { input, bodyHtml: html, diagrams };
+  return { input, bodyHtml: html, diagrams, notes };
 }
 
 /** HTML に埋め込む文字列を安全にする */
@@ -229,8 +233,7 @@ export async function exportPdf(
   cfg: ExportConfig,
   secrets: SecretProvider
 ): Promise<ExportResult> {
-  const { input, bodyHtml, diagrams } = loadInput(sourcePath);
-  const notes: string[] = [];
+  const { input, bodyHtml, diagrams, notes } = loadInput(sourcePath, cfg);
 
   const withFigures = embedLocalImages(
     await embedMermaid(bodyHtml, diagrams, cfg, notes),
@@ -295,8 +298,7 @@ export async function exportPdf(
 
 /** Word を出力する */
 export async function exportDocx(sourcePath: string, cfg: ExportConfig): Promise<ExportResult> {
-  const { input } = loadInput(sourcePath);
-  const notes: string[] = [];
+  const { input, notes } = loadInput(sourcePath, cfg);
   const buffer = await renderDocx(input, cfg, notes);
 
   const outputPath = resolveOutputPath(sourcePath, cfg, '.docx');

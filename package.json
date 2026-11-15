@@ -2,7 +2,7 @@
   "name": "markdown-formal-pdf",
   "displayName": "Markdown Formal PDF / Word",
   "description": "%description%",
-  "version": "0.3.7",
+  "version": "0.4.0",
   "publisher": "kazunito",
   "license": "MIT",
   "repository": {
@@ -506,6 +506,30 @@
         "title": "%configuration.markdownFormal.output.title%",
         "order": 5,
         "properties": {
+            "markdownFormal.inputFormat": {
+              "type": "string",
+              "default": "auto",
+              "enum": [
+                "auto",
+                "markdown",
+                "okf"
+              ],
+              "description": "%markdownFormal.inputFormat.description%",
+              "enumDescriptions": [
+                "%markdownFormal.inputFormat.enum.auto%",
+                "%markdownFormal.inputFormat.enum.markdown%",
+                "%markdownFormal.inputFormat.enum.okf%"
+              ],
+              "order": 3,
+              "scope": "resource"
+            },
+            "markdownFormal.includeOkfDetails": {
+              "type": "boolean",
+              "default": false,
+              "description": "%markdownFormal.includeOkfDetails.description%",
+              "order": 4,
+              "scope": "resource"
+            },
           "markdownFormal.outputDirectory": {
             "type": "string",
             "default": "",

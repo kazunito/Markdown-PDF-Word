@@ -94,6 +94,8 @@ The table of contents is generated from the headings. To keep a hand-written tab
 
 | Setting | Default | Description |
 |---|---|---|
+| `markdownFormal.inputFormat` | `auto` | Auto (default), Markdown, or Open Knowledge Format (OKF). |
+| `markdownFormal.includeOkfDetails` | `false` | Append available OKF summary, sources, and verification details to PDF and Word. |
 | `markdownFormal.page.format` | `A4` | Paper size (A4/A3/B5/Letter/Legal; B5 is JIS B5, 182 x 257 mm) |
 | `markdownFormal.page.orientation` | `portrait` | Paper orientation (whole document) |
 | `markdownFormal.frame.cover` | `false` | Draw a page border on the cover |
@@ -114,6 +116,8 @@ All settings are edited from the settings screen. Run
 
 Give fonts a fallback chain so that they resolve on all three operating systems
 (the defaults are ordered Hiragino → Yu → Noto).
+
+Auto detects OKF when a parent folder has an `index.md` declaring `okf_version: "0.2"` and the document has a non-empty string `type`. Select `okf` for a standalone OKF file. Reserved `index.md` and `log.md` files use standard export. With details enabled, web sources are linked and local reference paths are printed as text.
 
 ## Display language
 

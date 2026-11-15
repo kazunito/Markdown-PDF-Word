@@ -1,4 +1,9 @@
 {
+  "markdownFormal.inputFormat.description": "Markdown input format for PDF and Word exports.",
+  "markdownFormal.inputFormat.enum.auto": "Automatic (default). Recognize OKF 0.2 from the bundle index.",
+  "markdownFormal.inputFormat.enum.markdown": "Use the standard Markdown export.",
+  "markdownFormal.inputFormat.enum.okf": "Read as Open Knowledge Format (OKF), including standalone files.",
+  "markdownFormal.includeOkfDetails.description": "Include the summary, sources and verification details in PDF and Word exports of OKF documents.",
   "description": "Converts Markdown into formal PDF and Word documents. Supports a cover page, table of contents, page numbers, page borders, a confidentiality stamp and protection (edit restriction / digital signature), and never modifies the Markdown source.",
   "configuration.markdownFormal.page.title": "1. Paper and page border",
   "markdownFormal.page.format.description": "Paper size.",

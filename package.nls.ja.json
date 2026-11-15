@@ -1,4 +1,9 @@
 {
+  "markdownFormal.inputFormat.description": "PDF・Wordへの変換に使うMarkdownの読み取り形式です。",
+  "markdownFormal.inputFormat.enum.auto": "自動（既定）。フォルダの索引にあるOKF 0.2の宣言を使って判断します。",
+  "markdownFormal.inputFormat.enum.markdown": "通常のMarkdownとして変換します。",
+  "markdownFormal.inputFormat.enum.okf": "Open Knowledge Format（OKF）として読み取ります。単独ファイルにも使えます。",
+  "markdownFormal.includeOkfDetails.description": "OKF文書の概要・根拠資料・確認情報をPDF・Wordに出力します。",
   "description": "正式文書向けに Markdown を PDF / Word へ変換します。表紙・目次・ページ番号・ページ枠・機密スタンプ・保護(編集制限/電子署名)に対応し、Markdown 自体は一切変更しません。",
   "configuration.markdownFormal.page.title": "1. 用紙とページ枠",
   "markdownFormal.page.format.description": "用紙サイズ。",

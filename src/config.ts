@@ -13,6 +13,8 @@ export function loadConfig(resource?: vscode.Uri): ExportConfig {
   const get = <T>(key: string, fallback: T): T => c.get<T>(key) ?? fallback;
 
   return {
+    inputFormat: get('inputFormat', 'auto'),
+    includeOkfDetails: get('includeOkfDetails', false),
     outputDirectory: get('outputDirectory', ''),
 
     page: {

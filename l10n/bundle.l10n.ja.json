@@ -1,4 +1,9 @@
 {
+  "OKF details": "補足情報",
+  "The OKF document needs a non-empty type in its YAML front matter.": "OKF文書の先頭のYAMLに、空でない type を記載してください。",
+  "Summary": "概要",
+  "Sources": "根拠資料",
+  "Verification": "確認情報",
   "The configured browser was not found: {0}\nCheck markdownFormal.browser.executablePath.": "設定されたブラウザが見つかりません: {0}\nmarkdownFormal.browser.executablePath を確認してください。",
   "Neither Chrome nor Edge was found.\nPDF output needs a rendering engine. Install one of them, or set the path to the executable in markdownFormal.browser.executablePath.": "Chrome または Edge が見つかりませんでした。\nPDF 化にはレンダリングエンジンが必要です。いずれかをインストールするか、設定 markdownFormal.browser.executablePath に実行ファイルのパスを指定してください。",
   "No signing certificate is configured.\nSet the absolute path of a .p12 or .pfx file in markdownFormal.signing.certificatePath.": "署名用証明書が設定されていません。\nmarkdownFormal.signing.certificatePath に .p12 / .pfx の絶対パスを指定してください。",

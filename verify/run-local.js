@@ -10,7 +10,9 @@ const { exportPdf, exportDocx } = require('../out/exporter');
 
 /** VSCode 設定の既定値と同じ内容を手で組み立てる */
 const cfg = {
-  outputDirectory: path.join(__dirname, 'out'),
+  inputFormat: process.env.MF_INPUT_FORMAT || 'auto',
+  includeOkfDetails: process.env.MF_OKF_DETAILS === 'on',
+  outputDirectory: process.env.MF_OUTPUT_DIR || path.join(__dirname, 'out'),
   // MF_FORMAT で用紙 (A4/A3/B5/Letter/Legal)、MF_ORIENTATION で向き (portrait/landscape) を変える
   page: {
     format: process.env.MF_FORMAT || 'A4',

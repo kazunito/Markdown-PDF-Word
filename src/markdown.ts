@@ -36,14 +36,16 @@ function normalizeMeta(parsed: Record<string, unknown>): DocumentMeta {
 }
 
 /** front matter を分離する。無ければ meta は空になる */
-export function splitFrontMatter(raw: string): { meta: DocumentMeta; body: string } {
+export function splitFrontMatter(raw: string): { meta: DocumentMeta; body: string; fields?: unknown } {
   const m = raw.match(FRONT_MATTER);
   if (!m) {
     return { meta: {}, body: raw };
   }
   let meta: DocumentMeta = {};
+  let fields: unknown;
   try {
     const parsed = yaml.load(m[1]);
+    fields = parsed;
     if (parsed && typeof parsed === 'object') {
       meta = normalizeMeta(parsed as Record<string, unknown>);
     }
@@ -51,7 +53,7 @@ export function splitFrontMatter(raw: string): { meta: DocumentMeta; body: strin
     // front matter が壊れていても本文の変換は続ける
     meta = {};
   }
-  return { meta, body: raw.slice(m[0].length) };
+  return { meta, body: raw.slice(m[0].length), fields };
 }
 
 /**
@@ -164,10 +166,10 @@ export function stripManualToc(body: string): string {
 }
 
 /** Markdown 全体を解析して変換の入力を作る */
-export function parseMarkdown(sourcePath: string, raw: string): ExportInput {
+export function parseMarkdown(sourcePath: string, raw: string, appendix = ''): ExportInput {
   const split = splitFrontMatter(raw);
   const meta = split.meta;
-  const body = stripManualToc(split.body);
+  const body = appendix ? stripManualToc(split.body).trimEnd() + appendix : stripManualToc(split.body);
   const headings: Heading[] = [];
   const md = createRenderer(headings, []);
   // 見出しの収集のために一度描画する。HTML 自体は renderBody で使い回す

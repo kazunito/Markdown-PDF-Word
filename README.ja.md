@@ -97,6 +97,8 @@ classification: 社外秘
 
 | 設定 | 既定値 | 説明 |
 |---|---|---|
+| `markdownFormal.inputFormat` | `auto` | 自動（既定）、通常のMarkdown、Open Knowledge Format（OKF）から選択します。 |
+| `markdownFormal.includeOkfDetails` | `false` | OKFの概要・根拠資料・確認情報のうち、記載されているものをPDF・Wordの文末に出力します。 |
 | `markdownFormal.page.format` | `A4` | 用紙サイズ (A4/A3/B5/Letter/Legal。B5 は JIS B5 = 182 x 257mm) |
 | `markdownFormal.page.orientation` | `portrait` | 用紙の向き (文書全体) |
 | `markdownFormal.frame.cover` | `false` | 表紙にページ枠を描く |
@@ -117,6 +119,8 @@ classification: 社外秘
 
 フォントは 3 OS で使えるようフォールバックを並べて指定してください
 (既定値はヒラギノ → 游 → Noto の順)。
+
+自動では、上位フォルダの `index.md` に `okf_version: "0.2"` があり、文書の `type` が空でない文字列ならOKFとして読み取ります。単独のOKF文書には `okf` を選べます。予約ファイルの `index.md` と `log.md` は通常どおり変換します。補足情報を出力すると、Web上の根拠資料にはリンクが付き、ローカルの参照パスは文字で表示されます。
 
 ## 表示言語
 
